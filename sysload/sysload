@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
+[ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ] && {
+        source ${BASE_DIR}/bin/include 2>&-
+}
+
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=    	### { ok | warn | crit | unknown }
+TYPE=   	### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+average_cpuload_uplimit=$(read_eminfo_config sysload average_cpuload_uplimit)
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${average_cpuload_uplimit}" -o ! -z "${average_cpuload_uplimit//[0-9]}" ] && average_cpuload_uplimit=3
+
+# check function here
+check(){
+  [ -f "/proc/loadavg" -a -f "/proc/cpuinfo" ] || {
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="FILE: [/proc/loadavg] or [/proc/cpuinfo] not prepared."
+	return
+  }
+
+  # collect data
+  local cpunum=$(awk '($1~/^processor/){t++}END{print t}' /proc/cpuinfo)
+  local loadave=$( cut -d" " -f1 /proc/loadavg 2>&1 )
+
+  [ -z "${loadave}" -o ! -z "${loadave//[0-9.]}" ] && {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="Retuen is not numberic: ["${loadave}"]"
+        return
+  }
+
+  # output data and exit if MODE=1
+  [ "${MODE}" == "1" ] && {
+	echo "${cpunum} ${loadave}"
+	exit
+  }
+
+  # output plugin format data if MODE=0
+  if [ "$(echo  "${loadave} >= (${cpunum} * ${average_cpuload_uplimit})" | bc 2>&-)" == "1" ]; then
+	EXIT_STATUS=${STATE_WARNING};
+	LEVEL="warn";
+	TYPE="str";
+	CONTENT="System Load Check CRITICAL | Load Average: [${loadave}] >= UpLimit: [$((${average_cpuload_uplimit}*${cpunum}))] | processor number: ${cpunum}, average load limit: ${average_cpuload_uplimit}"
+  else
+	EXIT_STATUS=${STATE_OK};
+	LEVEL="ok";
+	TYPE="str";
+	CONTENT="System Load Check OK | Load Average: [${loadave}] <= UpLimit: [$((${average_cpuload_uplimit}*${cpunum}))] | processor number: ${cpunum}, average load limit: ${average_cpuload_uplimit}"
+  fi
+}
+
+check
+
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

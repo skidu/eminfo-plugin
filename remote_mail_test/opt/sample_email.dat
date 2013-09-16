@@ -1,0 +1,16 @@
+# default file which [remote_mail_test]->sample_email_file specified. 
+#
+# Fromat:  @domain   :::  SMTP-Server-Host   :::  Target EmailBox
+#
+# Note: SMTP-Server-Host IS The Best Preference MX-Server IF Left Blank
+# Note: Specified SMTP-Server-Host Under Such Contiditions:
+#   1. Best Preference MX-Server NOT Conncted.
+#   2. Specified Remote Relay Route Configs ON Local Mail-Server.
+#
+#
+
+@live.cn    :::   		:::    root_bbk@live.cn
+@gmail.com  :::   		:::    zhang.elinks@gmail.com
+@126.com    :::   		:::    root_bbk@126.com  linxue061zgz@126.com
+@sina.com   :::   		:::    linxue061zgz@sina.com
+@qq.com     :::  mx1.qq.com  	:::    1052257495@qq.com

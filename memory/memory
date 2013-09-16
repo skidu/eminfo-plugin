@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
+[ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ] && {
+        source ${BASE_DIR}/bin/include 2>&-
+}
+
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=    	### { ok | warn | crit | unknown }
+TYPE=    	### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+mem_uplimit=$(read_eminfo_config memory mem_uplimit)
+swp_uplimit=$(read_eminfo_config memory swp_uplimit)
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${mem_uplimit}" -o ! -z "${mem_uplimit//[0-9]}" ] && mem_uplimit=0
+[ -z "${swp_uplimit}" -o ! -z "${swp_uplimit//[0-9]}" ] && swp_uplimit=10
+
+# check function here
+check(){
+
+  [ -f "/proc/meminfo" -a -r "/proc/meminfo" ] || {
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="File: [/proc/meminfo] not prepared.";
+	return
+  }
+
+  # collect data
+  local mem_total=$(awk '/^MemTotal:/ {print $2;exit;}' /proc/meminfo 2>&-)
+  local mem_free=$(awk '/^MemFree:/ {print $2;exit;}' /proc/meminfo 2>&-)
+  local swp_total=$(awk '/^SwapTotal:/ {print $2;exit;}' /proc/meminfo 2>&-)
+  local swp_free=$(awk '/^SwapFree:/ {print $2;exit;}' /proc/meminfo 2>&-)
+  local mem_percent=$( echo "scale=3; 100 * (1 - ${mem_free}/${mem_total})" | bc 2>&- )
+  local swp_percent=$( echo "scale=3; 100 * (1 - ${swp_free}/${swp_total})" | bc 2>&- )
+
+  # output plugin format data if MODE=0
+  [ -z "${mem_total}" -o ! -z "${mem_total//[0-9]}" -o -z "${mem_free}" -o ! -z "${mem_free//[0-9]}" ] && {
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="memory total=[${total}] or memory free=[${free}] is not numberic.";
+	return
+  }
+
+  [ -z "${swp_total}" -o ! -z "${swp_total//[0-9]}" -o -z "${swp_free}" -o ! -z "${swp_free//[0-9]}" ] && {
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="swap total=[${total}] or swap free=[${free}] is not numberic.";
+	return
+  }
+
+  [ -z "${mem_percent}" -o ! -z "${mem_percent//[0-9.]}" -o -z "${swp_percent}" -o ! -z "${swp_percent//[0-9.]}" ] && {
+	EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="Retuen is not numberic: ["${mem_percent}"] or [${swp_percent}]";
+	return 
+  }
+
+  # output data and exit if MODE=1
+  [ "${MODE}" == "1" ] && {
+	echo "$((${mem_total}/1024))M $((${mem_free}/1024))M ${mem_percent}% "\
+		"$((${swp_total}/1024))M $((${swp_free}/1024))M ${swp_percent}%"
+	exit
+  }
+
+  oknum=0 warnnum=0 result=
+  if [ "$(echo  "${mem_percent} >= ${mem_uplimit}" | bc 2>&-)" == "1" ]; then
+	((warnnum++))
+	result="${result} ### Memory Usage: [${mem_percent}]% >= Uplimit: [${mem_uplimit}%] ### total=[$((${mem_total}/1024))]M  free=[$((${mem_free}/1024))]M ###"
+  else
+	((oknum++))
+	result="${result} ### Memory Usage: [${mem_percent}]% <= Uplimit: [${mem_uplimit}%] ### total=[$((${mem_total}/1024))]M  free=[$((${mem_free}/1024))]M ###"
+  fi
+
+  if [ "$(echo  "${swp_percent} >= ${swp_uplimit}" | bc 2>&-)" == "1" ]; then
+	((warnnum++))
+	result="${result} ### Swap Usage: [${swp_percent}]% >= Uplimit: [${swp_uplimit}%] ### total=[$((${swp_total}/1024))]M  free=[$((${swp_free}/1024))]M ###"
+  else
+	((oknum++))
+	result="${result} ### Swap Usage: [${swp_percent}]% <= Uplimit: [${swp_uplimit}%] ### total=[$((${swp_total}/1024))]M  free=[$((${swp_free}/1024))]M ###"
+  fi
+
+  if [ ${warnnum} -gt 0 ]; then
+	local rsz_top_ps=$(ps -eo pid,comm,rsz|tail -n +2|sort -rn -k 3|head|sed -e 's/$/###/g' | tr -d '\n')
+	local vsz_top_ps=$(ps -eo pid,comm,vsz|tail -n +2|sort -rn -k 3|head|sed -e 's/$/###/g' | tr -d '\n')
+	EXIT_STATUS=${STATE_WARNING};
+	LEVEL="warn";
+	TYPE="str";
+	CONTENT="Memory/Swap Usage Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) failed | ${result} ### ${rsz_top_ps} ### ${vsz_top_ps}"
+	((oknum++))
+  else
+	EXIT_STATUS=${STATE_OK};
+	LEVEL="ok";
+	TYPE="str";
+	CONTENT="Memory/Swap Usage Check OK | ${oknum}/$((${warnnum}+${oknum})) ok | ${result}"
+  fi
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
+[ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ] && {
+	source ${BASE_DIR}/bin/include 2>&-
+}
+
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=    	### { ok | warn | crit | unknown }
+TYPE=    	### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+uplimit=$( read_eminfo_config cpu_usage uplimit )
+wa_uplimit=$( read_eminfo_config cpu_usage wa_uplimit )
+sy_uplimit=$( read_eminfo_config cpu_usage sy_uplimit )
+us_uplimit=$( read_eminfo_config cpu_usage us_uplimit )
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${uplimit}" -o ! -z "${uplimit//[0-9]}" ] && uplimit=75
+[ -z "${wa_uplimit}" -o ! -z "${wa_uplimit//[0-9]}" ] && wa_uplimit=20
+[ -z "${sy_uplimit}" -o ! -z "${sy_uplimit//[0-9]}" ] && sy_uplimit=30
+[ -z "${us_uplimit}" -o ! -z "${us_uplimit//[0-9]}" ] && us_uplimit=50
+
+# check function here
+check(){
+
+  if [ ! -x "/usr/bin/vmstat" ]; then
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="Command: [/usr/bin/vmstat] not prepared.";
+	return
+  fi
+
+  # collect data
+  local cpu_usage=
+  cpu_usage=( $( /usr/bin/vmstat 1 5 | tail -n +3 |\
+	awk '{id+=$15;wa+=$16;sy+=$14;us+=$13} END{print 100-id/5,wa/5,sy/5,us/5}' 2>&1 ) )
+
+  # output data and exit if MODE=1
+  [ "${MODE}" == "1" ] && {
+	echo "${cpu_usage[*]}"
+	exit;
+  }
+
+  # output plugin format data if MODE=0
+  p_usage="${cpu_usage[0]}"; wa_usage="${cpu_usage[1]}"
+  sy_usage="${cpu_usage[2]}"; us_usage="${cpu_usage[3]}"
+
+  oknum=0 warnnum=0 result=
+  if [ "$(echo  "${p_usage} >= ${uplimit}" | bc 2>&-)" == "1" ]; then
+	((warnnum++))
+	result="${result} cpu usage: [$p_usage] >= uplimit: [${uplimit}%] ###"
+  else
+	((oknum++))
+	result="${result} cpu usage: [$p_usage] <= uplimit: [${uplimit}%] ###"
+  fi
+
+  if [ "$(echo  "${wa_usage} >= ${wa_uplimit}" | bc 2>&-)" == "1" ]; then
+	((warnnum++))
+	result="${result} cpu wait usage: [$wa_usage] >= uplimit: [${wa_uplimit}%] ###"
+  else
+	((oknum++))
+	result="${result} cpu wait usage: [$wa_usage] <= uplimit: [${wa_uplimit}%] ###"
+  fi
+
+  if [ "$(echo  "${sy_usage} >= ${sy_uplimit}" | bc 2>&-)" == "1" ]; then
+	((warnnum++))
+	result="${result} cpu sys usage: [$sy_usage] >= uplimit: [${sy_uplimit}%] ###"
+  else
+	((oknum++))
+	result="${result} cpu sys usage: [$sy_usage] <= uplimit: [${sy_uplimit}%] ###"
+  fi
+
+  if [ "$(echo  "${us_usage} >= ${uplimit}" | bc 2>&-)" == "1" ]; then
+	((warnnum++))
+	result="${result} cpu user usage: [$us_usage] >= uplimit: [${us_uplimit}%] ###"
+  else
+	((oknum++))
+	result="${result} cpu user usage: [$us_usage] <= uplimit: [${us_uplimit}%] ###"
+  fi
+
+  if [ ${warnnum} -gt 0 ]; then
+	local top_pcpu_ps=$(ps -eo pid,comm,pcpu|tail -n +2|sort -rn -k 3|head|sed -e 's/$/###/g' | tr -d '\n')
+	EXIT_STATUS=${STATE_WARNING};
+	LEVEL="warn";
+	TYPE="str";
+	CONTENT="CPU Usage Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) failed | ${result} ### ${top_pcpu_ps}"
+  else
+	EXIT_STATUS=${STATE_OK};
+	LEVEL="ok";
+	TYPE="str";
+	CONTENT="CPU Usage Check OK | ${oknum}/$((${warnnum}+${oknum})) ok | ${result}"
+  fi
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

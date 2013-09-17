@@ -6,8 +6,17 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
         source ${BASE_DIR}/bin/include 2>&-
 }
 
+show_help(){
+cat <<EOF
+Arguments:   d | data
+Output   :   {mem_size}M {mem_free}M {mem_used_pct}%  {swp_size}M {swp_free}M {swp_used_pct}%
+Example  :   386M 313M 19.100%  799M 792M 1.000%
+EOF
+exit 0;
+}
 MODE=0
 [ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
 
 
 # Return Codes

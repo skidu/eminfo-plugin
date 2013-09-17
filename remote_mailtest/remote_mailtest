@@ -21,9 +21,9 @@ TYPE=         ### { str| file }
 CONTENT=      ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-sample_email_file=$( read_eminfo_config remote_mail_test sample_email_file )
-mail_body_file=$( read_eminfo_config remote_mail_test mail_body_file )
-helo_greeting_fqdn=$( read_eminfo_config remote_mail_test helo_greeting_fqdn )
+sample_email_file=$( read_eminfo_config remote_mailtest sample_email_file )
+mail_body_file=$( read_eminfo_config remote_mailtest mail_body_file )
+helo_greeting_fqdn=$( read_eminfo_config remote_mailtest helo_greeting_fqdn )
 
 # if null or invalid set default.
 [ -z "${helo_greeting_fqdn}" ] && helo_greeting_fqdn="eyou.net."

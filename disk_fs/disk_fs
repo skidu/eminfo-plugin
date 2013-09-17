@@ -6,8 +6,26 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
         source ${BASE_DIR}/bin/include 2>&-
 }
 
+show_help(){
+cat <<EOF
+Arguments:   d | data
+
+Output:   
+FileSystem_Stat: {device} {fstype} {stat}
+Disk_Space: {device} {fstype} {mount_point} {free_spcace}M {free_space_pct}%
+Inode_Space: {device} {fstype} {mount_point} {free_inode_pct}%
+
+Example:
+FileSystem_Stat: /dev/mapper/VolGroup-lv_root ext4 clean
+FileSystem_Stat: /dev/sda1 ext4 clean
+Disk_Space: /dev/mapper/VolGroup-lv_root ext4 / 2752M 42%
+Inode_Space: /dev/mapper/VolGroup-lv_root ext4 / 70%
+EOF
+exit 0;
+}
 MODE=0
 [ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
 
 
 # Return Codes
@@ -82,7 +100,7 @@ check(){
 			echo "FileSystem_Stat: ${d} ${t} ${stat}"
 			continue
 		}
-		if [ "${stat}" == "kclean" ]; then
+		if [ "${stat}" == "clean" ]; then
 			result="${result} ${d} (${t}) -> ${stat} ###"
 		else
 			result="${result} ${d} (${t}) -> $(html_red "${stat}") ###"

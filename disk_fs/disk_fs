@@ -113,7 +113,7 @@ check(){
   do
 	efs="${efs} -x ${x}"
   done
-  result="${result} ### SKIP FSTYPE: [ "${exclude_fstype}" ] ### ###"
+  result="${result} ### SKIP FSTYPE: [ "${exclude_fstype}" ] ###"
   # with <-x nfs>, /bin/df won't hung up.
   local diskinfo=$( eval "/bin/df -P -T -m ${efs} 2>&- | tail -n +2" )
   local inodeinfo=$( eval "/bin/df -P -T -i ${efs} 2>&-| tail -n +2" )
@@ -127,7 +127,7 @@ check(){
 	return
   }
 
-  result="${result} $(html_green "Space Check") ### ### "
+  result="${result} ### ### $(html_green "Space Check") ### ### "
   # echo -e "${diskinfo}" | while read -a line		### ${result} ${warnnum} will NOT be saved.
   echo -e "${diskinfo}" > /tmp/.disk_info.eminfo
   while read -a line 
@@ -148,7 +148,7 @@ check(){
 	for y in `echo "${exclude_partiton}"`
 	do
 		[ "${line[6]}" == "${y}" ] && {
-			result="${result} ["${line[@]}"] SKIP. ### mount point [${line[6]}] SKIP. ###"
+			result="${result} ["${line[@]}"] SKIP. as mount point=[${line[6]}] ###"
 			continue 2
 		}
 	done
@@ -201,7 +201,7 @@ check(){
 	for y in `echo "${exclude_partiton}"`
 	do
 		[ "${line[6]}" == "${y}" ] && {
-                        result="${result} ["${line[@]}"] SKIP. ### mount point [ ${line[6]} ] SKIP. ###"
+                        result="${result} ["${line[@]}"] SKIP, as mount point=[${line[6]}] ###"
                         continue 2
                 }
 	done

@@ -30,8 +30,8 @@ time_out=$( read_eminfo_config http_svr time_out )
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${addr_port}" ] && addr_port="127.0.0.1:80"
-[ -z "${time_out}" -o ! -z "${time_out//[0-9]}" ] && time_out=3
+[ -z "${addr_port}" ] && addr_port="http:127.0.0.1:80"
+[ -z "${time_out}" -o ! -z "${time_out//[0-9]}" ] && time_out=10
 
 # check function here
 check(){
@@ -47,22 +47,25 @@ check(){
   for x in `echo "${addr_port}"`;
   do
 	local addr=  port=  str1=  str2=
-	addr=$(echo "${x}" | awk -F: '{print $1}')
+	prot=$(echo "${x}" | awk -F: '{print $1}')
+	addr=$(echo "${x}" | awk -F: '{print $2}')
 	port=$(echo "${x}" | awk -F: '{print $NF}')
-   	curl -4 -I -> 200 OK
-	curl -w %{http_code} time_total time_namelookup time_connect size_download size_header size_request 
-  	str1=$( (echo -e "quit\n") | /usr/bin/nc -w ${time_out} ${addr} ${port} 2>&1 |head -n1 )
-  	str2=$( echo -e "${str1}" | grep -E -i -o "ok|ready|start|running|pop3|mua" )
+	[ "${prot}" == "https" ] && {
+	arr=($(curl -s -k -o /dev/null -w "%{http_code} %{time_total}s %{size_download}Bytes" "${prot}://${addr}:${port}" 2>&1))
+	}
+	[ "${prot}" == "http" ] && {
+	arr=($(curl -s -o /dev/null -w "%{http_code} %{time_total}s %{size_download}Bytes" "${prot}://${addr}:${port}" 2>&1))
+	}
 	# output data and exit if MODE=1
 	[ "${MODE}" == "1" ] && {
-		echo "${addr}:${port} ${str1}"
+		echo "${addr}:${port} ${arr[*]}"
 		continue
 	}
-  	if [ -n "${str2}" ]; then
-		result=" ${result} check [${x}] return [${str1}] ### "
+  	if [ "${arr[0]}" == "200" ]; then
+		result=" ${result} check [${x}] return [code=${arr[0]}, time=${arr[1]}, pagesize=${arr[2]}] ### "
   	else
 		((err_num++))
-		result=" ${result} $(html_red "check [${x}] return [${str1}]") ### "
+		result=" ${result} $(html_red "check [${x}] return [code=${arr[0]}, time=${arr[1]}, pagesize=${arr[2]}]") ### "
   	fi
 	((total++))
   done
@@ -74,12 +77,12 @@ check(){
 	EXIT_STATUS=${STATE_OK};
 	LEVEL="ok";
 	TYPE="str";
-	CONTENT="POP SVR OK | ${total}/${total} pop3 check succeed | "${result}" "
+	CONTENT="HTTP SVR OK | ${total}/${total} http check succeed | "${result}" "
   } || {
 	EXIT_STATUS=${STATE_CRITICAL};
 	LEVEL="crit";
 	TYPE="str";
-	CONTENT="POP SVR CRITICAL | ${err_num}/${total} pop3 check failed | "${result}" "
+	CONTENT="HTTP SVR CRITICAL | ${err_num}/${total} http check failed | "${result}" "
   }
 }
 

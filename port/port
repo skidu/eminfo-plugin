@@ -1,14 +1,28 @@
 #!/usr/bin/env bash
 
 
-if [ -z "${BASE_DIR}" ]; then
-	path=$(cd $(dirname $0) && pwd)  
-	BASE_DIR=${path%/*}
-	source ${BASE_DIR}/bin/include 2>&-
-fi
+BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
+[ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ] && {
+        source ${BASE_DIR}/bin/include 2>&-
+}
 
+show_help(){
+cat <<EOF
+Arguments:   d | data
 
+Output:   
+{prot}://{addr}:{port}  {tmout} {result}
 
+Example:
+tcp://127.0.0.1:22 5 [Connection to 127.0.0.1 22 port [tcp/ssh] succeeded! ]
+udp://1.1.1.1:53 10 [Connection to 1.1.1.1 53 port [udp/domain] succeeded! ]
+EOF
+exit 0;
+}
+
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
 
 # Return Codes
 STATE_OK=0
@@ -24,11 +38,12 @@ TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-port_list=$( read_eminfo_config check_port port_list )
+port_list=$( read_eminfo_config port port_list )
 
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
+# [ -z "${port_list//[ ]}" ] && port_list=" tcp:127.0.0.1:22:5 udp:1.1.1.1:53:10 tcp:mail.eyou.net:110:3  tcp:mail.eyou.net:443:10"
 [ -z "${port_list//[ ]}" ] && port_list=" tcp:127.0.0.1:22:5 "
 
 # check function here
@@ -45,36 +60,41 @@ check_single(){
 
   [ -z "${ptype//[ ]}" ] && ptype="tcp"   ### set default
   [ -z "${tmout//[ ]}" -o "${tmout}" == "0" ] && tmout=5	    ### set default
-  [ -z "${ip//[ ]}" -o -z "${port//[ ]}" ] && {    ### ip/port null, return UNKNOWN
+  if [ -z "${ip//[ ]}" -o -z "${port//[ ]}" ]; then    ### ip/port null, return UNKNOWN
 	((unknum++))
-	output="$(html_red "ip/port required: ip=[${ip}] or port=[${port}] must be specified") ### ### "
+	output="$(html_red "ip/port required: ip=[${ip}] port=[${port}]") ### ### "
 	return_code=2
-  } || {
+  else
   	if [ "${ptype}" == "udp" -o "${ptype}" == "tcp" ]; then		### ptype ok, continue
 		if [ -z "${port}" -o ! -z "${port//[0-9]}" -o -z "${tmout}" -o ! -z "${tmout//[0-9]}" ]; then
 			((unknum++))
-			output="$(html_red "port/tmout invalid: port=[${port}] or tmout=[${tmout}] is not numberic") ### ### "
+			output="$(html_red "port/tmout must be numberic: port=[${port}] or tmout=[${tmout}]") ### ### "
 			return_code=2
 		else							### port/tmout ok, continue
 			if [ "${ptype}" == "udp" ]; then
-				local rstr=$( /usr/bin/nc -u -w "${tmout}" -vz "${ip}" "${port}" 2>&1 )
+				local rstr=$( /usr/bin/nc -u -w "${tmout}" -vz "${ip}" "${port}" 2>&1 |tr '\n' ' ')
 			else
-				local rstr=$( /usr/bin/nc -w "${tmout}" -vz "${ip}" "${port}" 2>&1 )
+				local rstr=$( /usr/bin/nc -w "${tmout}" -vz "${ip}" "${port}" 2>&1|tr '\n' ' ')
 			fi
-			[ "$(sub_str "${rstr}" "succeeded")" == "yes" ] && {
+			# output data and exit if MODE=1 
+			[ "${MODE}" == "1" ] && {
+				echo "${ptype}://${ip}:${port} ${tmout} [${rstr}]"
+				return
+			}
+			if [ "$(sub_str "${rstr}" "succeeded")" == "yes" ]; then
 				output="$(html_green "Check ${ptype}://${ip}:${port} OK, return [${rstr}]" ) ### "
 				return_code=0
-			} || {
+			else
 				output="$(html_red "Check ${ptype}://${ip}:${port} WARN, return [${rstr}]" ) ### "
 				return_code=1
-			}
+			fi
 		fi
   	else	### ptype invalid, return UNKNOWN
 		((unknum++))
-		output="$(html_red "ptype invalid: [${ptype}] must be tcp or udp") ### ### "
+		output="$(html_red "port type invalid: [${ptype}], must be tcp/udp") ### ### "
 		return_code=2
   	fi
-  }
+  fi
 
   echo -e "${output}"
   return ${return_code}
@@ -140,8 +160,18 @@ check_single(){
 	"2")
 		((unknum++))	;;
 	esac
+
+	# output data and exit if MODE=1 
+	[ "${MODE}" == "1" ] && {
+		echo "${tmpstr}"
+		continue
+	}
+
 	result="${result} "${tmpstr}" "
   done
+
+  # exit if MODE=1 
+  [ "${MODE}" == "1" ] && exit
 
   [ "${errnum}" != "0" ] && {
 	EXIT_STATUS=${STATE_CRITICAL};

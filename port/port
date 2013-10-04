@@ -8,14 +8,16 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
 
 show_help(){
 cat <<EOF
-Arguments:   d | data
-
-Output:   
-{prot}://{addr}:{port}  {tmout} {result}
-
-Example:
-tcp://127.0.0.1:22 5 [Connection to 127.0.0.1 22 port [tcp/ssh] succeeded! ]
-udp://1.1.1.1:53 10 [Connection to 1.1.1.1 53 port [udp/domain] succeeded! ]
+Arguments:   {d|data|h|help}  {port_list}
+{port_list} format:
+ port
+ ip:port
+ [tcp/udp]:ip:port
+ [tcp/udp]:ip:port:tmout
+Usage:  data  "22 udp:1.1.1.1:53  mail.eyou.net:110"
+Output:   {rcode}  {prot}://{addr}:{port}  {tmout}  {result}
+0 tcp://127.0.0.1:22 5 [Connection to 127.0.0.1 22 port [tcp/ssh] succeeded! ]
+0 udp://1.1.1.1:53 10 [Connection to 1.1.1.1 53 port [udp/domain] succeeded! ]
 EOF
 exit 0;
 }
@@ -38,13 +40,17 @@ TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-port_list=$( read_eminfo_config port port_list )
+if [ "${MODE}" == "1" ]; then
+	port_list="$2"
+else
+	port_list=$( read_eminfo_config port port_list )
+fi
+
 
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-# [ -z "${port_list//[ ]}" ] && port_list=" tcp:127.0.0.1:22:5 udp:1.1.1.1:53:10 tcp:mail.eyou.net:110:3  tcp:mail.eyou.net:443:10"
-[ -z "${port_list//[ ]}" ] && port_list=" tcp:127.0.0.1:22:5 "
+[ -z "${port_list//[ ]}" ] && port_list="22"
 
 # check function here
 check(){
@@ -58,17 +64,19 @@ check_single(){
   local return_code=0
   local output=
 
-  [ -z "${ptype//[ ]}" ] && ptype="tcp"   ### set default
-  [ -z "${tmout//[ ]}" -o "${tmout}" == "0" ] && tmout=5	    ### set default
-  if [ -z "${ip//[ ]}" -o -z "${port//[ ]}" ]; then    ### ip/port null, return UNKNOWN
+  ### set default:   tcp 5 127.0.0.1
+  [ -z "${ptype//[ ]}" ] && ptype="tcp" 
+  [ -z "${ip//[ ]}" ] && ip="127.0.0.1"
+  [ -z "${tmout//[ ]}" -o "${tmout}" == "0" ] && tmout=5
+  if [ -z "${port//[ ]}" ]; then    ### port null, return UNKNOWN
 	((unknum++))
-	output="$(html_red "ip/port required: ip=[${ip}] port=[${port}]") ### ### "
+	output="$(html_red "port required") ### ### "
 	return_code=2
   else
   	if [ "${ptype}" == "udp" -o "${ptype}" == "tcp" ]; then		### ptype ok, continue
 		if [ -z "${port}" -o ! -z "${port//[0-9]}" -o -z "${tmout}" -o ! -z "${tmout//[0-9]}" ]; then
 			((unknum++))
-			output="$(html_red "port/tmout must be numberic: port=[${port}] or tmout=[${tmout}]") ### ### "
+			output="$(html_red "port/tmout must be numberic: port=[${port}] tmout=[${tmout}]") ### ### "
 			return_code=2
 		else							### port/tmout ok, continue
 			if [ "${ptype}" == "udp" ]; then
@@ -76,11 +84,6 @@ check_single(){
 			else
 				local rstr=$( /usr/bin/nc -w "${tmout}" -vz "${ip}" "${port}" 2>&1|tr '\n' ' ')
 			fi
-			# output data and exit if MODE=1 
-			[ "${MODE}" == "1" ] && {
-				echo "${ptype}://${ip}:${port} ${tmout} [${rstr}]"
-				return
-			}
 			if [ "$(sub_str "${rstr}" "succeeded")" == "yes" ]; then
 				output="Check ${ptype}://${ip}:${port} OK, return [${rstr}] ###"
 				return_code=0
@@ -88,10 +91,15 @@ check_single(){
 				output="$(html_red "Check ${ptype}://${ip}:${port} WARN, return [${rstr}]" ) ### "
 				return_code=1
 			fi
+			# output data and exit if MODE=1 
+			[ "${MODE}" == "1" ] && {
+				echo "${return_code} ${ptype}://${ip}:${port} ${tmout} [${rstr}]"
+				return
+			}
 		fi
   	else	### ptype invalid, return UNKNOWN
 		((unknum++))
-		output="$(html_red "port type invalid: [${ptype}], must be tcp/udp") ### ### "
+		output="$(html_red "port type [${ptype}] invalid, must be tcp/udp") ### ### "
 		return_code=2
   	fi
   fi
@@ -100,8 +108,6 @@ check_single(){
   return ${return_code}
 }
 
-  local result=" ### Check List: [${port_list}] ### ### "
-  local oknum=0 errnum=0 unknum=0 total=0
   [ -f "/usr/bin/nc" -a -x "/usr/bin/nc" ] || {
 	EXIT_STATUS=${STATE_UNKNOWN};
         LEVEL="unknown";
@@ -110,12 +116,19 @@ check_single(){
         return
   }
 
-  # for port_num in `echo "${port_list}" | tr ',' ' '`
+  local result=" ### Check List: [${port_list}] ### ### "
+  local oknum=0 errnum=0 unknum=0 total=0
   for pairs in `echo "${port_list}" | tr ',' ' '`
   do
 	((total++))
 	sepnum=$(echo -e "${pairs}" | awk -F":" 'END{print --NF}')
 	case "${sepnum}" in
+	"0")
+		ptype=
+		ip=
+		port="${pairs//[ ]}"
+		tmout=
+		;;
 	"1")
 		ptype=
 		ip=$(echo -e "${pairs}" | cut -d: -f1)

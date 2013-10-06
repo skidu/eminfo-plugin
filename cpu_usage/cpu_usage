@@ -9,8 +9,9 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
 
 show_help(){
 cat <<EOF
-Arguments:   d | data
-Output   :   usa_pct% wait_pct%_sys_pct% user_pct%
+Arguments:   {d|data|h|help}
+Usage	 :   data
+Output   :   usa_pct% wait_pct%_sys_pct% usr_pct%
 Example  :   0.4 0.2 0 0
 EOF
 exit 0;
@@ -69,14 +70,15 @@ check(){
 	exit;
   }
 
-  # output plugin format data if MODE=0
-  p_usage="${cpu_usage[0]}"; wa_usage="${cpu_usage[1]}"
-  sy_usage="${cpu_usage[2]}"; us_usage="${cpu_usage[3]}"
+  p_usage="${cpu_usage[0]}";
+  wa_usage="${cpu_usage[1]}"
+  sy_usage="${cpu_usage[2]}";
+  us_usage="${cpu_usage[3]}"
 
   oknum=0 warnnum=0 result=
   if [ "$(echo  "${p_usage} >= ${uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} cpu usage: [$p_usage] >= uplimit: [${uplimit}%] ###"
+	result="${result} $(html_red "cpu usage: [$p_usage] >= uplimit: [${uplimit}%]") ###"
   else
 	((oknum++))
 	result="${result} cpu usage: [$p_usage] <= uplimit: [${uplimit}%] ###"
@@ -84,7 +86,7 @@ check(){
 
   if [ "$(echo  "${wa_usage} >= ${wa_uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} cpu wait usage: [$wa_usage] >= uplimit: [${wa_uplimit}%] ###"
+	result="${result} $(html_red "cpu wait usage: [$wa_usage] >= uplimit: [${wa_uplimit}%]") ###"
   else
 	((oknum++))
 	result="${result} cpu wait usage: [$wa_usage] <= uplimit: [${wa_uplimit}%] ###"
@@ -92,7 +94,7 @@ check(){
 
   if [ "$(echo  "${sy_usage} >= ${sy_uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} cpu sys usage: [$sy_usage] >= uplimit: [${sy_uplimit}%] ###"
+	result="${result} $(html_red "cpu sys usage: [$sy_usage] >= uplimit: [${sy_uplimit}%]") ###"
   else
 	((oknum++))
 	result="${result} cpu sys usage: [$sy_usage] <= uplimit: [${sy_uplimit}%] ###"
@@ -100,7 +102,7 @@ check(){
 
   if [ "$(echo  "${us_usage} >= ${uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} cpu user usage: [$us_usage] >= uplimit: [${us_uplimit}%] ###"
+	result="${result} $(html_red "cpu user usage: [$us_usage] >= uplimit: [${us_uplimit}%]") ###"
   else
 	((oknum++))
 	result="${result} cpu user usage: [$us_usage] <= uplimit: [${us_uplimit}%] ###"

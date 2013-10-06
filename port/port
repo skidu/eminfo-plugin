@@ -14,8 +14,11 @@ Arguments:   {d|data|h|help}  {port_list}
  ip:port
  [tcp/udp]:ip:port
  [tcp/udp]:ip:port:tmout
+
 Usage:  data  "22 udp:1.1.1.1:53  mail.eyou.net:110"
+
 Output:   {rcode}  {prot}://{addr}:{port}  {tmout}  {result}
+
 0 tcp://127.0.0.1:22 5 [Connection to 127.0.0.1 22 port [tcp/ssh] succeeded! ]
 0 udp://1.1.1.1:53 10 [Connection to 1.1.1.1 53 port [udp/domain] succeeded! ]
 EOF

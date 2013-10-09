@@ -1,0 +1,45 @@
+#!/bin/bash
+
+path=$(cd $(dirname $0) && pwd)
+basedir=${path%/*}
+
+# first: clear old files
+clean(){
+  rm -rf "${path}"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} 2>&-
+  mkdir -p "${path}"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} 2>&-
+}
+clean
+[ "$1" == "clean" ] && exit 0
+
+[ -f "/usr/bin/rpmbuild" -a -x "/usr/bin/rpmbuild" ] || {
+	echo "/usr/bin/rpmbuild not prepared"
+	exit 1
+}
+
+name=$(awk -F: '($1~/Name/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
+version=$(awk -F: '($1~/Version/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
+source0=$(awk -F: '($1~/Source0/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
+
+plugins="memory mysql_ping http_svr tcp_conn sysload disk_fs cpu_usage mail_queue port"
+mkdir -p "${path}"/SOURCES/${name}-${version}
+for p in `echo "${plugins}"`
+do
+	cp -a "${basedir}"/${p} "${path}"/SOURCES/${name}-${version}/
+	for d in conf handler opt
+	do
+		[ -d "${path}"/SOURCES/${name}-${version}/${p}/${d} ] || {
+			mkdir -p "${path}"/SOURCES/${name}-${version}/${p}/${d}
+		}
+	done
+done
+cd "${path}"/SOURCES/
+tar -czf "${source0}" ${name}-${version}
+rm -rf "${path}"/SOURCES/${name}-${version}
+cp -a "${basedir}"/eminfo-plugin.spec  "${path}"/SPECS/
+
+cat > ~/.rpmmacros <<EOF
+%_topdir ${path}/
+EOF
+
+/usr/bin/rpmbuild -bb "${path}"/SPECS/eminfo-plugin.spec 2>&1
+find "${path}"/RPMS/ -type f -iname "*.rpm" -print

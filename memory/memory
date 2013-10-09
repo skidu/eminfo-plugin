@@ -40,7 +40,7 @@ swp_uplimit=$(read_eminfo_config memory swp_uplimit)
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${mem_uplimit}" -o ! -z "${mem_uplimit//[0-9]}" ] && mem_uplimit=0
+[ -z "${mem_uplimit}" -o ! -z "${mem_uplimit//[0-9]}" ] && mem_uplimit=90
 [ -z "${swp_uplimit}" -o ! -z "${swp_uplimit//[0-9]}" ] && swp_uplimit=10
 
 # check function here
@@ -97,7 +97,7 @@ check(){
   oknum=0 warnnum=0 result=
   if [ "$(echo  "${mem_percent} >= ${mem_uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} ### Memory Usage: [${mem_percent}]% >= Uplimit: [${mem_uplimit}%] ### total=[$((${mem_total}/1024))]M  free=[$((${mem_free}/1024))]M ###"
+	result="${result} ### $(html_yellow "Memory Usage: [${mem_percent}]% >= Uplimit: [${mem_uplimit}%]") ### total=[$((${mem_total}/1024))]M  free=[$((${mem_free}/1024))]M ###"
   else
 	((oknum++))
 	result="${result} ### Memory Usage: [${mem_percent}]% <= Uplimit: [${mem_uplimit}%] ### total=[$((${mem_total}/1024))]M  free=[$((${mem_free}/1024))]M ###"
@@ -105,7 +105,7 @@ check(){
 
   if [ "$(echo  "${swp_percent} >= ${swp_uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} ### Swap Usage: [${swp_percent}]% >= Uplimit: [${swp_uplimit}%] ### total=[$((${swp_total}/1024))]M  free=[$((${swp_free}/1024))]M ###"
+	result="${result} ### $(html_yellow "Swap Usage: [${swp_percent}]% >= Uplimit: [${swp_uplimit}%]") ### total=[$((${swp_total}/1024))]M  free=[$((${swp_free}/1024))]M ###"
   else
 	((oknum++))
 	result="${result} ### Swap Usage: [${swp_percent}]% <= Uplimit: [${swp_uplimit}%] ### total=[$((${swp_total}/1024))]M  free=[$((${swp_free}/1024))]M ###"

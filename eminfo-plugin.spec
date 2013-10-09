@@ -7,7 +7,7 @@ Group:  	Extension
 Packager: 	Zhang Guangzheng <zhang.elinks@gmail.com>
 BuildRoot: 	/var/tmp/%{name}-%{version}-%{release}-root
 Source0: 	eminfo-plugin-0.1-beta1.tgz
-Requires:		eminfo
+Requires:		eminfo >= 1.0, setup >= 2.5.58
 Requires: 		coreutils >= 5.97, bash >= 3.1
 Requires:		e2fsprogs >= 1.39, procps >= 3.2.7
 Requires:		psmisc >= 22.2, util-linux >= 2.13
@@ -16,6 +16,7 @@ Requires: 		gawk >= 3.1.5, sed >= 4.1.5
 Requires:		perl >= 5.8.8, grep >= 2.5.1
 Requires:		tar >= 1.15.1, gzip >= 1.3.5
 Requires:		curl >= 7.15.5, bc >= 1.06
+Requires:		findutils >= 4.2.27, net-tools >= 1.60
 Requires(post): 	chkconfig
 Requires(preun): 	chkconfig, initscripts
 Requires(postun): 	coreutils >= 5.97
@@ -53,6 +54,8 @@ done
 %defattr(-,root,root,-)
 /usr/local/eminfo/plugin/
 /usr/local/eminfo/conf/
+/usr/local/eminfo/handler/
+/usr/local/eminfo/opt/
 
 %post
 

@@ -120,7 +120,7 @@ check_single(){
   local result=" ### Check List: [${port_list}] ### ### "
   local oknum=0 errnum=0 unknum=0 total=0
   local statfile="/tmp/.check_tcpconn_num.statfile.eminfo"
-  netstat -an > "${statfile}" 2>&-
+  /bin/netstat -an > "${statfile}" 2>&-
   [ ! -f "${statfile}" -o ! -s "${statfile}" ] && {
 	EXIT_STATUS=${STATE_UNKNOWN};
         LEVEL="unknown";

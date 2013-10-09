@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
+[ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ] && {
+        source ${BASE_DIR}/bin/include 2>&-
+}
+
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}
+
+Usage:  data 
+
+Output:   {total} {local_num} {remote_num} {bounce_num}
+Example:  11 3 8 0
+EOF
+exit 0;
+}
+
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=""    	### { ok | warn | crit | unknown }
+TYPE=""    	### { str| file }
+CONTENT=""      ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+uplimit=$(read_eminfo_config mail_queue uplimit)
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${uplimit}" -o ! -z "${uplimit//[0-9]}" ] && uplimit="300"
+
+# check function here
+check(){
+  local total=0  ln=0  rn=0
+  local ldir="/usr/local/eyou/mail/queue/Local/Info"
+  local rdir="/usr/local/eyou/mail/queue/Remote/Info"
+  local bdir="/usr/local/eyou/mail/queue/Bounce/Info"
+
+  [ -d "${ldir}" -a -d "${rdir}" -a -d "${bdir}" ] || {
+	EXIT_STATUS=${STATE_UNKNOWN}
+	LEVEL="unknown"
+	TYPE="str"
+	CONTENT="Mail Queue Directories Missing | {Local/Remote/Bounce}/Info not directory | maybe mail version < 5. "
+	return
+  }
+
+  ln=$(find ${ldir} -follow -type f 2>&-| wc -l)
+  rn=$(find ${rdir} -follow -type f 2>&-| wc -l)
+  bn=$(find ${bdir} -follow -type f 2>&-| wc -l)
+  total=$(echo "${ln}+${rn}+${bn}" | bc 2>&-)
+
+  # output data and exit if MODE=1 
+  [ "${MODE}" == "1" ] && {
+	echo "${total} ${ln} ${rn} ${bn}"
+	exit
+  }
+
+  if [ ! -z "${total}" -a -z "${total//[0-9]}" ]; then
+ 	[ "$( echo "${total} >= ${uplimit}" | bc 2>&- )" == "1" ] && {
+		EXIT_STATUS="${STATE_CRITICAL}"
+		LEVEL="crit"
+		TYPE="str"
+		CONTENT="Queuing Letters Number CRITICAL | ${total} letters | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### "
+	} || {
+		EXIT_STATUS="${STATE_OK}"
+		LEVEL="ok"
+		TYPE="str"
+		CONTENT="Queuing Letters Number OK | ${total} letters | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### "
+	}
+  else
+	EXIT_STATUS=${STATE_UNKNOWN}
+	LEVEL="unknown"
+	TYPE="str"
+	CONTENT="Queuing Letters Number Unknown | total: [${total}] not numberic | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### "
+  fi
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

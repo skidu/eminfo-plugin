@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+
+
+
+BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
+[ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ] && {
+        source ${BASE_DIR}/bin/include 2>&-
+}
+
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}  {mysqladmin_path}  {ip,port,user,pass; ip,port,user,pass; ...}
+
+Usage:   data  /opt/mysql/bin/mysqladmin  "127.0.0.1,3306,eyou,eyou; 127.0.0.1,3316,eyou,eyou"
+
+Output:   {ip:port}  {[result]}
+
+127.0.0.1:3306  [mysqld is alive ]
+169.131.5.95:3316  [mysqld is alive ]
+EOF
+exit 0;
+}
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=""    	### { ok | warn | crit | unknown }
+TYPE=""    	### { str| file }
+CONTENT=""      ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+if [ "${MODE}" == "1" ]; then
+	mysqladmin_path="$2"
+	mysql_conn_conf="$3"
+else
+	mysqladmin_path=$( read_eminfo_config mysql_ping mysqladmin_path )
+	mysql_conn_conf=$( read_eminfo_config mysql_ping mysql_conn_conf )
+fi
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${mysqladmin_path//[ ]}" ] && mysqladmin_path="/usr/local/eyou/mail/opt/mysql/bin/mysqladmin"
+[ -z "${mysql_conn_conf//[ ]}" ] && mysql_conn_conf="127.0.0.1,3306,eyou,eyou"
+
+# check function here
+check() {
+
+  [ -f "${mysqladmin_path}" -a -x "${mysqladmin_path}" ] || {
+	EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="utitile [${mysqladmin_path}] not prepared."
+	return
+  } 
+
+  local result=
+  local oknum=0 errnum=0 unknum=0 total=0
+  for pairs in `echo "${mysql_conn_conf}" | tr ';' ' '`
+  do
+	((total++))
+
+	sepnum=$(echo -e "${pairs}" | awk -F"," 'END{print --NF}')
+	if [ "${sepnum}" != "3" ]; then
+		((unknum++))
+		result="${result} ### $(html_yellow "[${pairs}] is invalid") ### ### "
+		continue 1
+	fi
+
+  	mysql_host="$(echo -e "${pairs}"|awk -F"," '{print $1}')"
+  	mysql_port="$(echo -e "${pairs}"|awk -F"," '{print $2}')"
+  	mysql_user="$(echo -e "${pairs}"|awk -F"," '{print $3}')"
+  	mysql_pass="$(echo -e "${pairs}"|awk -F"," '{print $4}')"
+ 	result="${result} ### ping mysql [${mysql_host}:${mysql_port}] with user [${mysql_user}] ### ### "
+
+	if [ -z "${mysql_pass}" ]; then
+		cmd="${mysqladmin_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} "
+	else
+		cmd="${mysqladmin_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} -p"${mysql_pass}" "
+	fi
+
+	ping_result=$( ${cmd} ping 2>&1| tr '\n' ' ' )
+	if [ "$(echo "${ping_result}"|grep -E -o -i "is alive")" == "" ]; then
+		((errnum++))
+		result="${result} ### $(html_red "result: [${ping_result}]") ### ### "
+	else
+		((oknum++))
+		result="${result} ### result: [${ping_result}] ### ### "
+	fi
+
+	# output data and exit if MODE=1 
+        [ "${MODE}" == "1" ] && {
+                echo "${mysql_host}:${mysql_port}  [${ping_result}]"
+                continue
+        }
+  done
+
+  # exit if MODE=1 
+  [ "${MODE}" == "1" ] && exit
+
+  [ "${errnum}" != "0" ] && {
+	EXIT_STATUS=${STATE_CRITICAL};
+	LEVEL="crit";
+	TYPE="str";
+	CONTENT="Mysql Ping CRITICAL | ${errnum}/${total} check failed | ${result} "
+  } || {
+	[ "${oknum}" == "${total}" ] && {
+		EXIT_STATUS=${STATE_OK};
+		LEVEL="ok";
+		TYPE="str";
+		CONTENT="Mysql Ping OK | ${oknum}/${total} check success | ${result} "
+	} || {
+		[ "${unknum}" != "0" ] && {
+			EXIT_STATUS=${STATE_UNKNOWN};
+			LEVEL="unknown";
+			TYPE="str";
+			CONTENT="Mysql Ping Unknown | ${unknum}/${total} check unknown | ${result} "
+		}
+	}
+  }
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

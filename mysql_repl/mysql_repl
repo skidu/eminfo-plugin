@@ -1,0 +1,65 @@
+﻿#! /bin/bash
+# 本脚本用于监控MySQL 复制是否运行，并且根据具体的错误代码自动判断是否忽略
+#
+
+now=`date +"%Y-%m-%d %H:%M:%S"`
+user=slavecheck
+host=192.168.7.81
+ip=192.168.7.81
+pass=sfslavecheck
+port=3306
+
+ErrFile=/mysqllog/script/slave/slave_error${port}.txt 
+>$ErrFile
+StatFile="/mysqllog/script/slave/slave_status${port}.txt"
+
+
+                /usr/local/mysql/bin/mysql -u$user -p$pass -P$port -h$host -e"show slave status\G;" > $StatFile
+
+                #取得 io_thread, sql_thread, last_errno 的状态
+
+                Master_Host=`cat $StatFile | grep "Master_Host" | awk '{print $2}'`
+                Master_Port=`cat $StatFile | grep "Master_Port" | awk '{print $2}'`
+                IoStat=`cat $StatFile | grep Slave_IO_Running | awk '{print $2}'`
+                SqlStat=`cat $StatFile | grep Slave_SQL_Running | awk '{ print $2}'`
+                Errno=`cat $StatFile | grep Last_Errno | awk '{print $2}'`
+                Seconds_BM=`cat $StatFile | grep Seconds_Behind_Master | awk '{print $2}'`
+                #IoStat=`cat $StatFile | head -n 12 | tail -n 1 | awk '{print $2}'`
+                #SqlStat=`cat $StatFile | head -n 13 | tail -n 1 | awk '{print $2}'`
+                #Errno=`cat $StatFile | head -n 20 | tail -n 1 | awk '{print $2}'`
+
+                  if [ $IoStat = 'No' ] || [ $SqlStat = 'No' ] ; then
+
+                  echo `date` "[slave error ${ip}:$port]" >> $ErrFile
+
+                  #如果错误代码为 0，则可能是因为网络等原因导致复制中断，直接重新启动复制即可
+
+                        if [ "$Errno" -eq 0 ] ; then
+                                /usr/local/mysql/bin/mysql -u$user -p$pass -P$port -h$host -e"start slave io_thread; start slave sql_thread;" 
+                                echo "start slave io_thread; start slave sql_thread;" >> $ErrFile
+                        #如果是一些不是很要紧的错误代码，也可以直接略过
+
+
+                        elif [ "$Errno" -eq 1007 ] || [ "$Errno" -eq 1053 ] || [ "$Errno" -eq 1062 ] || [ "$Errno" -eq 1213 ] || [ "$Errno" -eq 1158 ] || [ "$Errno" -eq 1159 ] || [ "$Errno" -eq 1008 ] ; then
+                                /usr/local/mysql/bin/mysql -u$user -p$pass -P$port -h$host -e"stop slave; set global sql_slave_skip_counter=1; slave start;"
+                                echo "stop slave; set global sql_slave_skip_counter=1; slave start;" >> $ErrFile
+                        else
+                                echo `date` "slave is down!!!" >> $ErrFile
+                                echo "Errno:$Errno" >> $ErrFile
+                        fi
+
+                  #删除临时状态文件
+#                 rm -f $StatFile
+
+
+                  fi
+
+
+                        if [ $Seconds_BM = 'NULL' ] || [ $Seconds_BM -gt 1000 ] ; then
+
+                            echo "Seconds_Behind_Master=$Seconds_BM" >> $ErrFile
+
+                        fi
+
+                        #删除临时状态文件
+                   #    rm -f $StatFile

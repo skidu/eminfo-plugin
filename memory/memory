@@ -40,8 +40,8 @@ swp_uplimit=$(read_eminfo_config memory swp_uplimit)
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${mem_uplimit}" -o ! -z "${mem_uplimit//[0-9]}" ] && mem_uplimit=90
-[ -z "${swp_uplimit}" -o ! -z "${swp_uplimit//[0-9]}" ] && swp_uplimit=10
+[ -z "${mem_uplimit}" -o ! -z "${mem_uplimit//[0-9.]}" ] && mem_uplimit=99.99
+[ -z "${swp_uplimit}" -o ! -z "${swp_uplimit//[0-9.]}" ] && swp_uplimit=10
 
 # check function here
 check(){

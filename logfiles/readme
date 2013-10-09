@@ -1,0 +1,9 @@
+check_logfiles is used to scan the lines of a file for regular expressions.
+The plugin check_logfiles was designed to operate in mission critical environments where missing log lines after a logfile rotation could not be tolerated. When such a logfile rotation takes place, check_logfiles detects this and analyses the lines of the archived logfile, even if it's compressed. 
+It normally scans only the lines of a logfile which were added since the last run of the plugin. 
+The main features are: 
+- multiple regular expressions can be given 
+- expressions can be categorized as warning or critical 
+- it can handle any logfile rotation strategy 
+- hook scripts (either external scripts or a piece of perl-code in the configuration file) are possible, taking actions when a line matches a pattern. (for example, whenever a critical pattern is found, a nsca message is sent to the nagios server) 
+- it is written in Perl, but also distributed as a Windows .exe 

@@ -6,8 +6,26 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
         source ${BASE_DIR}/bin/include 2>&-
 }
 
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}  {addr_port}  {tmout}
+{addr_port} format:
+  [http|https]:ip:port
+
+Usage:   data  "http:127.0.0.1:80  https:mail.eyou.net:443"  10
+
+Output:   
+{addr}:{port}  {http_code} {time_total}s {size_download}Bytes
+
+127.0.0.1:80 200 0.008s 12Bytes
+mail.eyou.net:443 200 0.108s 24736Bytes
+EOF
+exit 0;
+}
+
 MODE=0
 [ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
 
 
 # Return Codes
@@ -24,8 +42,13 @@ TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-addr_port=$( read_eminfo_config http_svr addr_port )
-time_out=$( read_eminfo_config http_svr time_out )
+if [ "${MODE}" == "1" ]; then
+        addr_port="$2"
+	time_out="$3"
+else   
+	addr_port=$( read_eminfo_config http_svr addr_port )
+	time_out=$( read_eminfo_config http_svr time_out )
+fi
 
 # if null return STATE_UNKNOWN.
 

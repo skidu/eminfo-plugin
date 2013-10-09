@@ -6,9 +6,22 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
         source ${BASE_DIR}/bin/include 2>&-
 }
 
+show_help(){
+cat <<EOF
+cat <<EOF
+Arguments:   {d|data|h|help}
+
+Usage    :   data
+
+Output   :   {processor_number}  {nower_load}
+Example  :   2  0.67
+EOF
+exit 0;
+}
+
 MODE=0
 [ "$1" == "data" -o "$1" == "d" ] && MODE=1
-
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
 
 # Return Codes
 STATE_OK=0

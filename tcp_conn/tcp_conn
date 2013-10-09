@@ -6,13 +6,54 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
         source ${BASE_DIR}/bin/include 2>&-
 }
 
-MODE=0
-[ "$1" == "data" -o "$1" == "d" ] && {
-  MODE=1
-  shift
-  PORTS="$*"
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}  {port_list}
+
+Usage:  data  "80, 110, 3306"
+
+Output:  
+port: {port}
+conn_stat:
+Total: {totol}
+{server connect stats}
+ip_stat:
+{top10 client connect stats}
+
+Example:
+
+port: 110
+conn_stat:
+Total: 61
+TIME_WAIT:42
+FIN_WAIT2:2
+ESTABLISHED:16
+LISTEN:1
+ip_stat:
+10  166.111.99.132
+3  59.66.145.161
+3  166.111.98.132
+2  101.5.201.37
+1  98.233.226.112
+1  61.148.242.39
+1  60.247.92.78
+1  59.66.113.20
+1  58.246.131.243
+1  222.128.61.148
+
+port: 80
+conn_stat:
+Total: 1
+LISTEN:1
+ip_stat:
+
+EOF
+exit 0;
 }
 
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
 
 # Return Codes
 STATE_OK=0
@@ -28,12 +69,16 @@ TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-port_list=$( read_eminfo_config tcp_conn port_list )
+if [ "${MODE}" == "1" ]; then
+        port_list="$2"
+else
+	port_list=$( read_eminfo_config tcp_conn port_list )
+fi
 
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${port_list//[ ]}" ] && port_list=" 80:500 "
+[ -z "${port_list//[ ]}" ] && port_list=" 80:300 "
 
 # check function here
 check(){
@@ -86,9 +131,9 @@ check_single(){
 
   # output data and exit if MODE=1
   [ "${MODE}" == "1" ] && {
-	for port_num in `echo "${PORTS}"`
+	for port_num in `echo "${port_list}" | tr ',' ' '`
 	do
-		check_single "${port_num}" "0" "${statfile}"
+		check_single "${port_num%%:*}" 0  "${statfile}"   ## No need to set limit number
 	done
 	exit
   }

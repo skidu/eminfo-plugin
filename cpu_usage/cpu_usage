@@ -6,11 +6,12 @@ BASE_DIR="$(/usr/local/eminfo/eminfo basedir)"
 	source ${BASE_DIR}/bin/include 2>&-
 }
 
-
 show_help(){
 cat <<EOF
 Arguments:   {d|data|h|help}
+
 Usage	 :   data
+
 Output   :   usa_pct% wait_pct%_sys_pct% usr_pct%
 Example  :   0.4 0.2 0 0
 EOF

@@ -1,13 +1,13 @@
 #!/bin/bash
 
 
-if [ -z "${BASE_DIR}" ]; then
-        path=$(cd $(dirname $0) && pwd)
-        BASE_DIR=${path%/*}
+BASE_DIR="/usr/local/eminfo/"
+if [ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ]; then
         source ${BASE_DIR}/bin/include 2>&-
+else
+        echo -en "{unknown}:{str}:{include file not exists or empty}"
+	exit 3
 fi
-
-
 
 # Return Codes
 STATE_OK=0

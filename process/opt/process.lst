@@ -14,45 +14,71 @@
 # 				Example 
 # =====================================================================
 #
-#syslogd		1	syslogd.*-m.*[0-9]*
 #
-#mailv4_mysql    	1  	/var/eyou/mysql/libexec/mysqld.+my.cnf.+mysql/var.+pid.*
-#eyouldap		1	/var/eyou/openldap/libexec/slapd.*
-#httpd_web		3 	/var/eyou/apache/bin/httpd.+start.*
-#eyou_script		1	/var/eyou/sbin/eyou_scriptd
-#smtp			6	/var/eyou/queue/bin/smtpd
-#pop3			6	/var/eyou/queue/bin/pop3d
-#imap			6	/var/eyou/sbin/imapd
-#snmp			1	/var/eyou/net-snmp/sbin/snmpd.+snmpd.conf.+snmpd.pid.*
-#unid			1	/var/eyou/sbin/unid
-#queue			3	/var/eyou/queue/bin/queue
-#mailv5_mysql    	1  	/usr/local/eyou/mail/opt/mysql/bin/mysqld.+my.cnf.+mysql.pid.*
-#httpd_web		3 	/usr/local/eyou/mail/opt/bin/httpd.+start.*
-#memcache_db		1	/usr/local/eyou/mail/opt/bin/memcachedb.+data/memcachedb.+memcache_db.pid.*
-#memcache_fastdb	1	/usr/local/eyou/mail/opt/bin/memcachedb.+data/memcachefastdb.+memcache_fastdb.pid.*
-#memcache_session	1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_session.pid.*
-#memcache_config	1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_config.pid.*
-#gearman_queue_php	1	/usr/local/eyou/mail/opt/sbin/gearmand.+gearman_php.pid.+gearman_queue_php.*
-#gearman_queue_mta	1	/usr/local/eyou/mail/opt/sbin/gearmand.+gearman_mta.pid.+gearman_queue_mta.*
-#red5			1 	/usr/local/eyou/mail/opt/java/bin/java.+opt/red5.*
-#innerapi		6	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_innerapi.*
-#phpd			6	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_phpd.*
-#filed			3	/usr/local/eyou/mail/app/bin/em_filed.*
-#filedagent		3	/usr/local/eyou/mail/app/bin/em_filedagent.*
-#syslog			1	/usr/local/eyou/mail/app/bin/em_syslogd
-#bounce			3	/usr/local/eyou/mail/app/bin/em_bounce
-#local			3	/usr/local/eyou/mail/app/bin/em_local
-#remote			3	/usr/local/eyou/mail/app/bin/em_remote
-#mlist			3	/usr/local/eyou/mail/app/bin/em_mlist
-#smtp			6	/usr/local/eyou/mail/app/bin/em_smtpd
-#pop3			6	/usr/local/eyou/mail/app/bin/em_pop3d
-#gearman		1	/usr/local/eyou/mail/opt/sbin/gearmand.+gearman.pid.+gearman_queue.+
-#httpd_search		3	/usr/local/eyou/mail/opt/bin/httpd.+httpd_search.conf.+start.*
-#em_searchdrepc		1	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_searchdrepc.*
-#filedrepc		1	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_filedrepc.*
-#filedrepd		2	/usr/local/eyou/mail/app/bin/em_filedrepd.*
-#qclean			3	/usr/local/eyou/mail/app/bin/em_qclean.*
-#magent_session
-#magent_config
-#magent_db
-#magent_fastdb
+### about system
+syslogd				1	syslogd.*-m.*[0-9]*
+rsyslogd			1	/sbin/rsyslogd.*-c.*[0-9]*
+
+### about mailv4
+mailv4_mysql    		1  	/var/eyou/mysql/libexec/mysqld.+my.cnf.+mysql/var.+pid.*
+mailv4_ldap			1	/var/eyou/openldap/libexec/slapd.*
+mailv4_httpd			3 	/var/eyou/apache/bin/httpd.+start.*
+mailv4_eyouscript		1	/var/eyou/sbin/eyou_scriptd
+mailv4_smtp			6	/var/eyou/queue/bin/smtpd
+mailv4_pop3			6	/var/eyou/queue/bin/pop3d
+mailv4_imap			6	/var/eyou/sbin/imapd
+mailv4_snmp			1	/var/eyou/net-snmp/sbin/snmpd.+snmpd.conf.+snmpd.pid.*
+mailv4_unid			1	/var/eyou/sbin/unid
+mailv4_queue			3	/var/eyou/queue/bin/queue
+
+### about mailv5
+mailv5_mysql    		1  	/usr/local/eyou/mail/opt/mysql/bin/mysqld.+my.cnf.+mysql.pid.*
+mailv5_httpd			3 	/usr/local/eyou/mail/opt/bin/httpd.+start.*
+mailv5_memcache_session		1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_session.pid.*
+mailv5_memcache_config		1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_config.pid.*
+mailv5_memcache_db		1	/usr/local/eyou/mail/opt/bin/memcachedb.+data/memcachedb.+memcache_db.pid.*
+mailv5_memcache_fastdb		1	/usr/local/eyou/mail/opt/bin/memcachedb.+data/memcachefastdb.+memcache_fastdb.pid.*
+mailv5_gearman_mta		1	/usr/local/eyou/mail/opt/sbin/gearmand.+gearman_mta.pid.+gearman_queue_mta.*
+mailv5_gearman_php		1	/usr/local/eyou/mail/opt/sbin/gearmand.+gearman_php.pid.+gearman_queue_php.*
+mailv5_red5			1 	/usr/local/eyou/mail/opt/java/bin/java.+opt/red5.*
+mailv5_innerapi			6	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_innerapi.*
+mailv5_phpd			6	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_phpd.*
+mailv5_syslog			1	/usr/local/eyou/mail/app/bin/em_syslogd
+mailv5_filed			3	/usr/local/eyou/mail/app/bin/em_filed.*
+mailv5_filedagent		3	/usr/local/eyou/mail/app/bin/em_filedagent.*
+mailv5_bounce			3	/usr/local/eyou/mail/app/bin/em_bounce
+mailv5_local			3	/usr/local/eyou/mail/app/bin/em_local
+mailv5_remote			3	/usr/local/eyou/mail/app/bin/em_remote
+mailv5_mlist			3	/usr/local/eyou/mail/app/bin/em_mlist
+mailv5_smtp			6	/usr/local/eyou/mail/app/bin/em_smtpd
+mailv5_pop3			6	/usr/local/eyou/mail/app/bin/em_pop3d
+mailv5_qclean			3	/usr/local/eyou/mail/app/bin/em_qclean.*
+mailv5_em_searchdrepc		1	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_searchdrepc.*
+mailv5_filedrepc		1	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_filedrepc.*
+mailv5_filedrepd		2	/usr/local/eyou/mail/app/bin/em_filedrepd.*
+
+### about mailv8
+mailv8_mysql		1	[^ ]+/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my.cnf.+em_mysql.pid.*
+mailv8_mysql_index	1	[^ ]+/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my_index.cnf.+em_mysql_index.pid.*
+mailv8_mysql_log	1	[^ ]+/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my_log.cnf.+em_mysql_log.pid
+mailv8_mproxy		1	/usr/local/eyou/mail/opt/mproxy/libexec/mysql-proxy.*em_mproxy.pid.*
+mailv8_mproxy_index	1	/usr/local/eyou/mail/opt/mproxy/libexec/mysql-proxy.*em_mproxy_index.pid.*
+mailv8_httpd            3       /usr/local/eyou/mail/opt/bin/httpd.+start.* 
+mailv8_nginx		1	nginx.*/usr/local/eyou/mail/opt/sbin/nginx.*
+mailv8_memcache_session 1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_session.pid.*
+mailv8_memcache_fix	1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_fix.pid.*
+mailv8_memcache_hot	1	/usr/local/eyou/mail/opt/bin/memcached.+memcache_hot.pid.*
+mailv8_gearman		1	/usr/local/eyou/mail/opt/sbin/gearmand.+em_gearman.pid.+gearman_queue.+
+mailv8_crtmpd		1	/usr/local/eyou/mail/opt/sbin/crtmpserver.*em_crtmpserver.pid.*
+mailv8_phpd		6	/usr/local/eyou/mail/opt/bin/php.+app/bin/em_phpd.*
+mailv8_syslog		1	/usr/local/eyou/mail/app/bin/em_syslogd
+mailv8_filed		3	/usr/local/eyou/mail/app/bin/em_filed.*
+mailv8_filedagent	3	/usr/local/eyou/mail/app/bin/em_filedagent.*
+mailv8_bounce		3	/usr/local/eyou/mail/app/bin/em_bounce
+mailv8_local		3       /usr/local/eyou/mail/app/bin/em_local
+mailv8_remote           3       /usr/local/eyou/mail/app/bin/em_remote
+mailv8_mlist            3       /usr/local/eyou/mail/app/bin/em_mlist
+mailv8_smtp             6       /usr/local/eyou/mail/app/bin/em_smtpd
+mailv8_pop3             6       /usr/local/eyou/mail/app/bin/em_pop3d
+mailv8_imap		6	/usr/local/eyou/mail/app/bin/em_imapd
+mailv8_cleanup		2	/usr/local/eyou/mail/app/bin/em_cleanup.*

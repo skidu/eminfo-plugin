@@ -23,14 +23,14 @@ TYPE=           ### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-pslist_file=$(read_eminfo_config check_process pslist_file)
+pslist_file=$(read_eminfo_config process pslist_file)
 
 # if null return STATE_UNKNOWN.
 [ -z "${pslist_file}" ] && {
 	EXIT_STATUS=${STATE_UNKNOWN}
         LEVEL="unknown"
         TYPE="str"
-        CONTENT="pslist_file Null."
+        CONTENT="Need pslist_file."
         echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
         exit ${EXIT_STATUS}
 } || {
@@ -54,7 +54,8 @@ pslist_file=$(read_eminfo_config check_process pslist_file)
 # check function here.
 check() {
   local errnum=0 total=0 result=
-   
+
+  local ps_output=$( /bin/ps -eo cmd= 2>&1 )
   /bin/awk '($0!~/^[ \t]*#/ && $0!~/^[ \t]*$/)' "${pslist_file}" > /tmp/.check_process.eminfo 2>&-
   while read -a line
   do
@@ -65,12 +66,12 @@ check() {
 
 	((total++))
 	result="${result} psname=[${pname}], psnum=[${pnum}], srchregx=[${pattern}] ### "
-	local psnum=$(/bin/ps -eo cmd= | grep -E -o -x "${pattern}" | wc -l)
+	local psnum=$(echo -e "${ps_output}" | grep -E -o -x "${pattern}" | wc -l)
 	if [ "$(echo "${psnum} < ${pnum}" | bc 2>&-)" == "1" ]; then
 		((errnum++))
-		result="${result} $(html_red "WARN:  [${pname}] running process number: [${psnum}] < [${pnum}].") ### ### "
+		result="${result} $(html_red "WARN:  [${pname}] (${psnum}) < (${pnum}).") ### ### "
 	else
-		result="${result} OK:  [${pname}] running process number: [${psnum}] >= [${pnum}]. ### ### "
+		result="${result} OK:  [${pname}] (${psnum}) >= (${pnum}). ### ### "
 	fi
   done < /tmp/.check_process.eminfo
 

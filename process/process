@@ -9,6 +9,26 @@ else
 	exit 3
 fi
 
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}  {pslist_file}
+
+Usage    :   data   /tmp/process.lst
+
+Output   :   {flag}  {psname}:{running_num}:{min_num}
+{flag}   :   0 OK, 1 FAIL
+
+1  syslogd:0:1
+0  rsyslogd:1:1
+1  mailv4_mysql:0:1
+EOF
+exit 0;
+}
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
+
 # Return Codes
 STATE_OK=0
 STATE_WARNING=1
@@ -23,17 +43,21 @@ TYPE=           ### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-pslist_file=$(read_eminfo_config process pslist_file)
+if [ "${MODE}" == "1" ]; then
+        pslist_file="$2"
+else
+	pslist_file=$(read_eminfo_config process pslist_file)
+fi
 
 # if null return STATE_UNKNOWN.
-[ -z "${pslist_file}" ] && {
+if [ -z "${pslist_file}" ]; then
 	EXIT_STATUS=${STATE_UNKNOWN}
         LEVEL="unknown"
         TYPE="str"
         CONTENT="Need pslist_file."
         echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
         exit ${EXIT_STATUS}
-} || {
+else 
 	if [ -f "/${pslist_file##*file:}" -a -s "/${pslist_file##*file:}" ]; then
 		pslist_file="/${pslist_file##*file:}"
         elif [ -f "${BASE_DIR}/${pslist_file##*file:}" -a -s "${BASE_DIR}/${pslist_file##*file:}" ]; then
@@ -46,8 +70,7 @@ pslist_file=$(read_eminfo_config process pslist_file)
                 echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
                 exit ${EXIT_STATUS}
         fi
-}
-# echo "${pslist_file}"; exit
+fi
 
 # if null or invalid set default.
 
@@ -59,36 +82,43 @@ check() {
   /bin/awk '($0!~/^[ \t]*#/ && $0!~/^[ \t]*$/)' "${pslist_file}" > /tmp/.check_process.eminfo 2>&-
   while read -a line
   do
-	[ "${#line[@]}" != "3" ] && continue
+	[ "${#line[@]}" != "3" ] && continue				### check filed number
 	local pname="${line[0]}" pnum="${line[1]}" pattern="${line[2]}"
-	[ -z "${pname//[ ]}" -o -z "${pattern//[ ]}" ] && continue	### important 
-	[ -z "${pnum}" -o ! -z "${pnum//[0-9]}" ] && local pnum=1       ### null/invalid => set default
+	[ -z "${pname}" -o -z "${pattern}" ] && continue		### check null
+	[ -z "${pnum}" -o ! -z "${pnum//[0-9]}" ] && local pnum=1	### check null/invalid
 
-	((total++))
+	((total++)) 
 	result="${result} psname=[${pname}], psnum=[${pnum}], srchregx=[${pattern}] ### "
-	local psnum=$(echo -e "${ps_output}" | grep -E -o -x "${pattern}" | wc -l)
+	local psnum=$(echo -e "${ps_output}" | grep -E -o -x -c "${pattern}")
 	if [ "$(echo "${psnum} < ${pnum}" | bc 2>&-)" == "1" ]; then
 		((errnum++))
-		result="${result} $(html_red "WARN:  [${pname}] (${psnum}) < (${pnum}).") ### ### "
+		result="${result} $(html_red "CRIT:  [${pname}] (${psnum}) < (${pnum}).") ### ### "
+		if [ "${MODE}" == "1" ]; then
+			echo "1  ${pname}:${psnum}:${pnum}"
+		fi
 	else
 		result="${result} OK:  [${pname}] (${psnum}) >= (${pnum}). ### ### "
+		if [ "${MODE}" == "1" ]; then
+			echo "0  ${pname}:${psnum}:${pnum}"
+		fi
 	fi
   done < /tmp/.check_process.eminfo
+
+  # exit if MODE=1  
+  [ "${MODE}" == "1" ] && exit;
 
   [ "${errnum}" != "0" ] && {
         EXIT_STATUS=${STATE_CRITICAL};
         LEVEL="crit";
         TYPE="str";
-        CONTENT="Check Process CRITICAL | ${errnum}/${total} Process Alert | ${result} "
+        CONTENT="Check Process CRITICAL | ${errnum}/${total} Process Alert | ${result}"
   } || {
         EXIT_STATUS="${STATE_OK}"
         LEVEL="ok"
         TYPE="str"
-        CONTENT="Check Process OK | No Process Alert | ${result} "
+        CONTENT="Check Process OK | All Process OK | ${result}"
   }
 }
-
-
 
 check
 

@@ -4,7 +4,7 @@
 # process-number will be 1 if not numberic
 # skip the line that not contains three filed
 #
-# search process via command:   ps -eo cmd= | grep -E -o -x "${pattern}"
+# search process via command:   ps -eo cmd= | grep -E -o -x -c "${pattern}"
 #
 
 
@@ -30,6 +30,24 @@ mailv4_imap			6	/var/eyou/sbin/imapd
 mailv4_snmp			1	/var/eyou/net-snmp/sbin/snmpd.+snmpd.conf.+snmpd.pid.*
 mailv4_unid			1	/var/eyou/sbin/unid
 mailv4_queue			3	/var/eyou/queue/bin/queue
+
+### about gw
+gw_smtp				6	/var/emdg/queue/bin/gw_smtpd
+gw_pop3				6	/var/emdg/queue/bin/gw_pop3d
+gw_httpd			3	/opt/apache/bin/httpd.*start
+gw_queue			3	/var/emdg/queue/bin/gw_queue
+gw_logsvrd			2	/var/emdg/sbin/gw_logsvrd			
+gw_logsvr			1	/var/emdg/sbin/gw_logsvr
+gw_deald			2	/var/emdg/sbin/deald
+gw_usersvr			1	/var/emdg/sbin/usersvrd
+gw_pinfod			1	/var/emdg/sbin/pinfod
+gw_eyoucron			1	/var/emdg/sbin/gw_eyoucron
+gw_defend			1	/var/emdg/sbin/gw_defend
+gw_configd			1	/var/emdg/sbin/configd
+gw_authmond			1	/var/emdg/sbin/authmond
+gw_kavehost			1	/var/emdg/kav/bin/kavehost.*kavehost.xml.*
+gw_mysqld			1	/opt/mysql/libexec/mysqld.*datadir.*/opt/mysql/var.*
+gw_memcache			1	/opt/memcached/bin/gw_memcached.*
 
 ### about mailv5
 mailv5_mysql    		1  	/usr/local/eyou/mail/opt/mysql/bin/mysqld.+my.cnf.+mysql.pid.*

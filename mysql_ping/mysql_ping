@@ -11,9 +11,9 @@ fi
 
 show_help(){
 cat <<EOF
-Arguments:   {d|data|h|help}  {mysqladmin_path}  {ip,port,user,pass; ip,port,user,pass; ...}
+Arguments:   {d|data|h|help}  {mysqladmin_path}  {ip,port,user,pass; ip,port,user,pass; ...}  {time_out}
 
-Usage:   data  /opt/mysql/bin/mysqladmin  "127.0.0.1,3306,eyou,eyou; 127.0.0.1,3316,eyou,eyou"
+Usage:   data  /opt/mysql/bin/mysqladmin  "127.0.0.1,3306,eyou,eyou; 127.0.0.1,3316,eyou,eyou"   10
 
 Output:   {ip:port}  {[result]}
 
@@ -42,16 +42,19 @@ CONTENT=""      ### { strings | /path/to/result.file }
 if [ "${MODE}" == "1" ]; then
 	mysqladmin_path="$2"
 	mysql_conn_conf="$3"
+	mysql_time_out="$4"
 else
 	mysqladmin_path=$( read_eminfo_config mysql_ping mysqladmin_path )
 	mysql_conn_conf=$( read_eminfo_config mysql_ping mysql_conn_conf )
+	mysql_time_out=$( read_eminfo_config mysql_ping mysql_time_out )
 fi
 
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${mysqladmin_path//[ ]}" ] && mysqladmin_path="/usr/local/eyou/mail/opt/mysql/bin/mysqladmin"
-[ -z "${mysql_conn_conf//[ ]}" ] && mysql_conn_conf="127.0.0.1,3306,eyou,eyou"
+[ -z "${mysqladmin_path}" ] && mysqladmin_path="/usr/local/eyou/mail/opt/mysql/bin/mysqladmin"
+[ -z "${mysql_conn_conf}" ] && mysql_conn_conf="127.0.0.1,3306,eyou,eyou"
+[ -z "${mysql_time_out}" -o ! -z "${mysql_time_out//[0-9]}" ] && mysql_time_out=10
 
 # check function here
 check() {
@@ -84,9 +87,9 @@ check() {
  	result="${result} ping mysql [${mysql_host}:${mysql_port}] with user [${mysql_user}] ### "
 
 	if [ -z "${mysql_pass}" ]; then
-		cmd="${mysqladmin_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} "
+		cmd="${mysqladmin_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} --connect-timeout ${mysql_time_out} "
 	else
-		cmd="${mysqladmin_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} -p"${mysql_pass}" "
+		cmd="${mysqladmin_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} -p"${mysql_pass}" --connect-timeout ${mysql_time_out} "
 	fi
 
 	ping_result=$( ${cmd} ping 2>&1| tr '\n' ' ' )

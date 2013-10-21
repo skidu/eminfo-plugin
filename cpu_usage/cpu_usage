@@ -34,7 +34,7 @@ STATE_NOOP=4
 
 # Set Default
 EXIT_STATUS=0
-LEVEL=    	### { ok | warn | crit | unknown }
+LEVEL=    	### { ok | warn | crit | unknown | noop }
 TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 

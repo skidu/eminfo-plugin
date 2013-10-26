@@ -80,12 +80,12 @@ check(){
 	EXIT_STATUS=${STATE_WARNING};
 	LEVEL="warn";
 	TYPE="str";
-	CONTENT="System Load Check CRITICAL | Load Average: [${loadave}] >= UpLimit: [$((${average_cpuload_uplimit}*${cpunum}))] | processor number: ${cpunum}, average load limit: ${average_cpuload_uplimit}"
+	CONTENT="System Load Check CRITICAL | load [${loadave} >= $((${average_cpuload_uplimit}*${cpunum}))] | processor number: ${cpunum}, average load limit: ${average_cpuload_uplimit}"
   else
 	EXIT_STATUS=${STATE_OK};
 	LEVEL="ok";
 	TYPE="str";
-	CONTENT="System Load Check OK | Load Average: [${loadave}] <= UpLimit: [$((${average_cpuload_uplimit}*${cpunum}))] | processor number: ${cpunum}, average load limit: ${average_cpuload_uplimit}"
+	CONTENT="System Load Check OK | load [${loadave} <= $((${average_cpuload_uplimit}*${cpunum}))] | processor number: ${cpunum}, average load limit: ${average_cpuload_uplimit}"
   fi
 }
 

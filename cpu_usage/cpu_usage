@@ -117,12 +117,12 @@ check(){
 	EXIT_STATUS=${STATE_WARNING};
 	LEVEL="warn";
 	TYPE="str";
-	CONTENT="CPU Usage Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) failed | ${result} ### ${top_pcpu_ps}"
+	CONTENT="CPU Usage Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) check failed. | ${result} ### ${top_pcpu_ps}"
   else
 	EXIT_STATUS=${STATE_OK};
 	LEVEL="ok";
 	TYPE="str";
-	CONTENT="CPU Usage Check OK | ${oknum}/$((${warnnum}+${oknum})) ok | ${result}"
+	CONTENT="CPU Usage Check OK | ${oknum}/$((${warnnum}+${oknum})) check success. | ${result}"
   fi
 }
 

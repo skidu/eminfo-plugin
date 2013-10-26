@@ -196,19 +196,19 @@ check_single(){
 	EXIT_STATUS=${STATE_CRITICAL};
 	LEVEL="crit";
 	TYPE="str";
-	CONTENT="Check Port CRITICAL | total: ${errnum}/${total} check failed. | "${result}" "
+	CONTENT="Check Port CRITICAL | ${errnum}/${total} check failed. | "${result}" "
   } || {
 	[ "${oknum}" == "${total}" ] && {
 		EXIT_STATUS=${STATE_OK};
 		LEVEL="ok";
 		TYPE="str";
-		CONTENT="Check Port OK | total: ${oknum}/${total} check success. | "${result}" "
+		CONTENT="Check Port OK | ${oknum}/${total} check success. | "${result}" "
 	} || {
 		[ "${unknum}" != "0" ] && {
 			EXIT_STATUS=${STATE_UNKNOWN};
 			LEVEL="unknown";
 			TYPE="str";
-			CONTENT="Check Port UNKNOWN | total: ${unknum}/${total} check unknown. | "${result}" "
+			CONTENT="Check Port UNKNOWN | ${unknum}/${total} check unknown. | "${result}" "
 		}
 	}
   } 

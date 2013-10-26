@@ -170,19 +170,19 @@ check_single(){
 	EXIT_STATUS=${STATE_CRITICAL};
 	LEVEL="crit";
 	TYPE="str";
-	CONTENT="TCP-Connection Number Check CRITICAL | total: ${errnum}/${total} check failed. | "${result}" "
+	CONTENT="TCP-Connection Number Check CRITICAL | ${errnum}/${total} check failed. | "${result}" "
   } || {
 	[ "${oknum}" == "${total}" ] && {
 		EXIT_STATUS=${STATE_OK};
 		LEVEL="ok";
 		TYPE="str";
-		CONTENT="TCP-Connection Number Check OK | total: ${oknum}/${total} check success. | "${result}" "
+		CONTENT="TCP-Connection Number Check OK | ${oknum}/${total} check success. | "${result}" "
 	} || {
 		[ "${unknum}" != "0" ] && {
 			EXIT_STATUS=${STATE_UNKNOWN};
 			LEVEL="unknown";
 			TYPE="str";
-			CONTENT="TCP-Connection Number Check UNKNOWN | total: ${unknum}/${total} check unknown. | "${result}" "
+			CONTENT="TCP-Connection Number Check UNKNOWN | ${unknum}/${total} check unknown. | "${result}" "
 		}
 	}
   } 

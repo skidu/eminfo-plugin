@@ -120,13 +120,13 @@ check(){
 	EXIT_STATUS=${STATE_WARNING};
 	LEVEL="warn";
 	TYPE="str";
-	CONTENT="Memory/Swap Usage Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) failed | ${result} ### ${rsz_top_ps} ### ${vsz_top_ps}"
+	CONTENT="Memory/Swap Usage Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) check failed. | ${result} ### ${rsz_top_ps} ### ${vsz_top_ps}"
 	((oknum++))
   else
 	EXIT_STATUS=${STATE_OK};
 	LEVEL="ok";
 	TYPE="str";
-	CONTENT="Memory/Swap Usage Check OK | ${oknum}/$((${warnnum}+${oknum})) ok | ${result}"
+	CONTENT="Memory/Swap Usage Check OK | ${oknum}/$((${warnnum}+${oknum})) check success. | ${result}"
   fi
 }
 

@@ -106,6 +106,7 @@ check(){
 		if [ "${stat}" == "clean" ]; then
 			result="${result} (${t}) ${d} -> ${stat} ###"
 		else
+			((warnnum++))
 			result="${result} $(html_red "(${t}) ${d} -> ${stat}") ###"
 		fi
   	done
@@ -124,6 +125,7 @@ check(){
 			if [ "${rc}" == "0" ]; then
                         	echo "Disk_IO: ${m} ${t} success"
 			else
+				((warnnum++))
 				echo "Disk_IO: ${m} ${t} warn \"${ioerr}\""
 			fi
                         continue
@@ -233,12 +235,12 @@ check(){
 	EXIT_STATUS=${STATE_WARNING};
 	LEVEL="warn";
 	TYPE="str";
-	CONTENT="Check Disk Spare WARNING | ${warnnum} Alert | ${result} "
+	CONTENT="Check Disk Spare WARNING | ${warnnum} check failed.| ${result} "
   } || {
 	EXIT_STATUS="${STATE_OK}"
 	LEVEL="ok"
 	TYPE="str"
-	CONTENT="Check Disk Spare OK | No Alert | ${result} "
+	CONTENT="Check Disk Spare OK | fsstat,iorw,space,inode check success. | ${result} "
   }
 
 }

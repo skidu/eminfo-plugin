@@ -103,12 +103,12 @@ check(){
 	EXIT_STATUS=${STATE_OK};
 	LEVEL="ok";
 	TYPE="str";
-	CONTENT="HTTP SVR OK | ${total}/${total} http check succeed | "${result}" "
+	CONTENT="HTTP SVR OK | ${total}/${total} http check success. | "${result}" "
   } || {
 	EXIT_STATUS=${STATE_CRITICAL};
 	LEVEL="crit";
 	TYPE="str";
-	CONTENT="HTTP SVR CRITICAL | ${err_num}/${total} http check failed | "${result}" "
+	CONTENT="HTTP SVR CRITICAL | ${err_num}/${total} http check failed. | "${result}" "
   }
 }
 

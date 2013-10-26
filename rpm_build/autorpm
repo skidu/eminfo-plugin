@@ -20,7 +20,7 @@ name=$(awk -F: '($1~/Name/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -
 version=$(awk -F: '($1~/Version/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
 source0=$(awk -F: '($1~/Source0/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
 
-plugins="memory mysql_ping http_svr tcp_conn sysload disk_fs cpu_usage mail_queue port"
+plugins="memory mysql_ping http_svr tcp_conn sysload disk_fs cpu_usage mail_queue port process"
 mkdir -p "${path}"/SOURCES/${name}-${version}
 for p in `echo "${plugins}"`
 do

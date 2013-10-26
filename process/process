@@ -116,7 +116,7 @@ check() {
         EXIT_STATUS="${STATE_OK}"
         LEVEL="ok"
         TYPE="str"
-        CONTENT="Check Process OK | All Process OK | ${result}"
+        CONTENT="Check Process OK | ${total}/${total} Process OK | ${result}"
   }
 }
 

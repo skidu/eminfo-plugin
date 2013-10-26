@@ -1,12 +1,12 @@
 Summary: 	plugins for eminfo
 Name: 		eminfo-plugin
 Version: 	0.1
-Release: 	beta1
+Release: 	beta2
 License: 	GPLv3
 Group:  	Extension
 Packager: 	Zhang Guangzheng <zhang.elinks@gmail.com>
 BuildRoot: 	/var/tmp/%{name}-%{version}-%{release}-root
-Source0: 	eminfo-plugin-0.1-beta1.tgz
+Source0: 	eminfo-plugin-0.1-beta2.tgz
 Requires:		eminfo >= 1.0, setup >= 2.5.58
 Requires: 		coreutils >= 5.97, bash >= 3.1
 Requires:		e2fsprogs >= 1.39, procps >= 3.2.7
@@ -64,5 +64,9 @@ done
 %postun
 
 %changelog
+* Sat Oct 26 2013 Guangzheng Zhang <zhang.elinks@gmail.com>
+- release eminfo-plugin-0.1-beta2.rpm
+- add plugin process, bugfix on mysql_ping
+- rename some eminfo config
 * Thu Oct 10 2013 Guangzheng Zhang <zhang.elinks@gmail.com>
 - first buildrpm for eminfo-plugin-0.1-beta1.rpm

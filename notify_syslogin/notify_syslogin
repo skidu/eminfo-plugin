@@ -1,121 +1,88 @@
-#!/bin/bash
+#!/usr/bin/env perl
+use strict;
+use warnings;
 
+# return codes
+our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
 
-if [ -z "${BASE_DIR}" ]; then
-        path=$(cd $(dirname $0) && pwd)
-        BASE_DIR=${path%/*}
-        source ${BASE_DIR}/bin/include 2>&-
-fi
+# return stuff
+our ($rc, $result) = (0,'');
 
+our $filename = (split /\//, __FILE__)[-1];
+our $tracefile = "/var/tmp/$filename.trace";
 
+# read plugin config here
+our @white_iplist = ();
+our $eminfo_basedir = "/usr/local/eminfo/";
+our $white_iplist = `eminfo v $filename white_iplist`;
 
-# Return Codes
-STATE_OK=0
-STATE_WARNING=1
-STATE_CRITICAL=2
-STATE_UNKNOWN=3
-STATE_NOOP=4
-
-# Set Default
-EXIT_STATUS=0
-LEVEL=        ### { ok | warn | crit | unknown | noop }
-TYPE=         ### { str| file }
-CONTENT=      ### { strings | /path/to/result.file }
-
-# Read plugin config value here
-allow_iplist=$( read_eminfo_config notify_syslogin allow_iplist )
-
-# if null return STATE_UNKNOWN.
-
-# if null or invalid set default.
-
-# set initdb file here.
-lastdb_file="/tmp/.last_syslogin_db.eminfo"
-
-# basic function defination.
-gen_logdb() {
-  local logfile="$1"
-  awk 'BEGIN{IGNORECASE=1;} (/Accepted Password for/){print $0}' "${logfile}" 2>&-
-}
-# gen_logdb ; exit
-
-rebuild_logdb() {
-  local logfile="$1"
-  chattr -iaAc "${lastdb_file}" 1>&- 2>&-
-  gen_logdb "${logfile}" > "${lastdb_file}"
-  chattr +iaAc "${lastdb_file}" 1>&- 2>&-
-}
-
-# check function here.
-check() {
-  local result=  title=
-  local newdb_file="/tmp/.new_syslogin_db.eminfo"
-
-  [ -f "/etc/syslog.conf" -a -s "/etc/syslog.conf" ] && local conffile="/etc/syslog.conf"
-  [ -f "/etc/rsyslog.conf" -a -s "/etc/rsyslog.conf" ] && local conffile="/etc/rsyslog.conf"
-  [ -f "${conffile}" -a -s "${conffile}" ] || {
-        EXIT_STATUS=${STATE_UNKNOWN};
-        LEVEL="unknown";
-        TYPE="str";
-        CONTENT="syslog config file [${conffile}] not exist or empty"
-	return
+if ($? == 0) {
+  chomp $white_iplist;
+  $white_iplist =~ s/\A\s*file://;
+  if ($white_iplist !~ /\A\s*\//) {
+	$white_iplist = $eminfo_basedir.$white_iplist;
   }
-
-  local logfile=$( awk '(/^authpriv\>/){print $2}' "${conffile}" 2>&- | sed -e 's/^-//')
-  [ -f "${logfile}" -a -s "${logfile}" ] || {
-	EXIT_STATUS=${STATE_UNKNOWN};
-	LEVEL="unknown";
-        TYPE="str";
-        CONTENT="authpriv log file [${logfile}] not exist or empty"
-	return 
+  if (-f $white_iplist) {
+	if(open FH, $white_iplist) {
+		while (<FH>) {
+			next if (/\A\s*\Z/ || /\A\s*#/ || /\A\s*;/ );
+			push @white_iplist,  split /\s+/;
+		}
+		close FH;
+	}
+  } else {
+	@white_iplist = split /\s+/, $white_iplist;
   }
-  
-  [ -f "${lastdb_file}" -a -s "${lastdb_file}" ] || rebuild_logdb "${logfile}"
-  gen_logdb "${logfile}" > "${newdb_file}"
+}
+# print "@white_iplist\n";
 
-  if [ -f "${newdb_file}" -a -s "${newdb_file}" -a -f "${lastdb_file}" -a -s "${lastdb_file}" ]; then
-        local add=0 last= new= tmp= lastonly= newonly=
-
-        # check new record
-        last=$( cat "${lastdb_file}" )
-        new=$( cat "${newdb_file}" )
-        tmp=$( echo -e "${last}\n""${new}" | sort | uniq -u  )   ### \n is important
-        newonly=$( echo -e "${tmp}\n""${new}" | sort | uniq -d )
-
-        [ -n "${newonly}" ] && add=1
-  else
-	EXIT_STATUS=${STATE_UNKNOWN};
-        LEVEL="unknown";
-        TYPE="str";
-        CONTENT="lastdb_file / newdb_file empty or not exist"
-	echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
-	exit ${EXIT_STATUS}
-  fi
-
-  rebuild_logdb "${logfile}"
-
-  case "${add}" in 
-  "0")
-	EXIT_STATUS="${STATE_OK}"
-        LEVEL="ok"
-        TYPE="str"
-        CONTENT="Notify System Login Check OK | No New System Login Records Found"
-	return
-	;;
-  "1")
-	title="Notify New System Login Record"
-	result="$(html_green "New Record:") ### ### $(echo -e "${newonly}" | sed -e 's/$/ ### /g;' | tr -d '\n' )"
-  	EXIT_STATUS=${STATE_CRITICAL};
-  	LEVEL="crit";
-  	TYPE="str";
-  	CONTENT="Notify System Login Check CRITICAL | ${title} | ${result} "
-	return
-	;;
-  esac
+my $authfile = `eminfo v $filename authfile`;
+if ($? != 0) {
+  $authfile = '/var/log/secure';
 }
 
-check
+# define dev, inode, position for {authfile}
+our ($dev, $inode, $position) = ();
 
-# output result and return exit status here.
-echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
-exit ${EXIT_STATUS}
+# define savepos
+sub savepos {
+  my ($authfile, $position) = @_;
+  if (open FH, ">$tracefile") {
+	($dev, $inode) = (stat $authfile)[0,1];
+	print FH "$dev $inode $position";
+	close FH;
+  } else {
+	return undef;
+  }
+}
+
+# define loadpos
+sub loadpos {
+  my $tracefile = shift;
+  if (open FH, "<$tracefile") {
+	while (<FH>) {
+  		($dev, $inode, $position) = (split /\s+/)[0,1,2];
+		last;
+	}
+	close FH;
+  }
+}
+
+# Main body begin
+
+# 1. load last trace position.
+loadpos ($tracefile);
+unless ($dev && $inode && $position) {  # maybe first running
+  savepos ($authfile,0);
+  loadpos ($tracefile);
+}
+
+unless (open FH, "<$authfile") {
+}
+seek (FH,$position,0);		# directly goto last position
+while (<FH>) {
+  print if /Accepted password for/;
+}
+my $newpos = tell(FH);
+savepos ($authfile, $newpos);
+

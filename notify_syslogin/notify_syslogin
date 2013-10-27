@@ -12,33 +12,14 @@ our $filename = (split /\//, __FILE__)[-1];
 our $tracefile = "/var/tmp/$filename.trace";
 
 # read plugin config here
-our @white_iplist = ();
-our $eminfo_basedir = "/usr/local/eminfo/";
-our $white_iplist = `eminfo v $filename white_iplist`;
-
-if ($? == 0) {
-  chomp $white_iplist;
-  $white_iplist =~ s/\A\s*file://;
-  if ($white_iplist !~ /\A\s*\//) {
-	$white_iplist = $eminfo_basedir.$white_iplist;
-  }
-  if (-f $white_iplist) {
-	if(open FH, $white_iplist) {
-		while (<FH>) {
-			next if (/\A\s*\Z/ || /\A\s*#/ || /\A\s*;/ );
-			push @white_iplist,  split /\s+/;
-		}
-		close FH;
-	}
-  } else {
-	@white_iplist = split /\s+/, $white_iplist;
-  }
-}
-# print "@white_iplist\n";
-
-my $authfile = `eminfo v $filename authfile`;
+our $authfile = `eminfo v $filename authfile`;
 if ($? != 0) {
   $authfile = '/var/log/secure';
+}
+
+our $eminfo_basedir = `eminfo basedir`;
+if ($? != 0) {
+  $eminfo_basedir = '/usr/local/eminfo/';
 }
 
 # define dev, inode, position for {authfile}
@@ -46,9 +27,10 @@ our ($dev, $inode, $position) = ();
 
 # define savepos
 sub savepos {
-  my ($authfile, $position) = @_;
+  my ($authfile, $position, $tracefile) = @_;
+  return undef unless (-f $authfile);
   if (open FH, ">$tracefile") {
-	($dev, $inode) = (stat $authfile)[0,1];
+  	($dev, $inode) = (stat $authfile)[0,1];
 	print FH "$dev $inode $position";
 	close FH;
   } else {
@@ -69,20 +51,50 @@ sub loadpos {
 }
 
 # Main body begin
-
-# 1. load last trace position.
+unless (-f $authfile) {
+  print "{noop}:{str}:{ authpriv file [$authfile] not exists. }";
+  exit $state_noop;
+}
+# 1. load position from tracefile
 loadpos ($tracefile);
 unless ($dev && $inode && $position) {  # maybe first running
-  savepos ($authfile,0);
-  loadpos ($tracefile);
+  savepos ($authfile,0,$tracefile);	# save position again
+  loadpos ($tracefile);			# load position again
 }
-
+# 2. read file dev,inode, checking rotated or not ?
+my ($nowdev, $nowinode) = (stat $authfile)[0,1];
+if ($dev ne $nowdev || $inode ne $nowinode) {	# maybe authfile logrotated
+  savepos ($authfile,0,$tracefile);		# save position again
+  loadpos ($tracefile);				# load position again
+}
+# 3. open authpri file and goto last position directly
 unless (open FH, "<$authfile") {
+  print "{noop}:{str}:{ open authpriv file [$authfile] failed. }";
+  exit $state_noop;
 }
 seek (FH,$position,0);		# directly goto last position
+# 4. scan authpri file record
+my @record = ();
 while (<FH>) {
-  print if /Accepted password for/;
+  chomp;
+  if (m/\A(\w+ \d+ .+? ).*Accepted password for (\w+) from (.+) port (\d+) .*\Z/i) {
+	push @record,  "$1: user [$2] login from [$3:$4] ###";
+  }
 }
+# 5. read nower position and save again.
 my $newpos = tell(FH);
-savepos ($authfile, $newpos);
-
+savepos ($authfile, $newpos, $tracefile);
+close FH;
+# 6. prepare last output
+my $number = @record;
+if ($number == 0) {
+  print "{noop}:{str}:{no login event found}";
+  exit $state_noop;
+} else {
+  while (@record) {
+  	$result .= shift @record;
+  }
+  $result = "$number login event | $number login event | " . $result;
+  print "{ok}:{str}:{$result}";
+  exit $state_ok;
+}

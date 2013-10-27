@@ -15,11 +15,15 @@ our $tracefile = "/var/tmp/$filename.trace";
 our $authfile = `eminfo v $filename authfile`;
 if ($? != 0) {
   $authfile = '/var/log/secure';
+} else {
+  chomp $authfile;
 }
 
 our $eminfo_basedir = `eminfo basedir`;
 if ($? != 0) {
   $eminfo_basedir = '/usr/local/eminfo/';
+} else {
+  chomp $eminfo_basedir;
 }
 
 # define dev, inode, position for {authfile}

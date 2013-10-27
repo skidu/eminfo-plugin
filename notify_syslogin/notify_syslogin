@@ -19,20 +19,12 @@ if ($? != 0) {
   chomp $authfile;
 }
 
-our $eminfo_basedir = `eminfo basedir`;
-if ($? != 0) {
-  $eminfo_basedir = '/usr/local/eminfo/';
-} else {
-  chomp $eminfo_basedir;
-}
-
 # define dev, inode, position for {authfile}
 our ($dev, $inode, $position) = ();
 
 # define savepos
 sub savepos {
   my ($authfile, $position, $tracefile) = @_;
-  return undef unless (-f $authfile);
   if (open FH, ">$tracefile") {
   	($dev, $inode) = (stat $authfile)[0,1];
 	print FH "$dev $inode $position";

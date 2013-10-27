@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+our @output;
+if (-x '/usr/bin/w') {
+  @output = `/usr/bin/w`;
+} else {
+  print "util [/usr/bin/w] not prepared, nothing to do.";
+}
+while (my $line=(shift @output)) {
+   chomp($line);
+   printf "$line ###";
+}

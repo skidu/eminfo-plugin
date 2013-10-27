@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+# return codes
+our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
+
+# return stuff
+our ($rc, $result) = (0,'');
+
+our $filename = (split /\//, __FILE__)[-1];
+our $tracefile = "/var/tmp/$filename.trace";
+
+# read plugin config here
+our $deliverfile = `eminfo v $filename deliver_logfile`;
+if ($? != 0) {
+  $deliverfile = '/usr/local/eyou/mail/log/deliver_mail.log';
+} else {
+  chomp $deliverfile;
+}
+
+# define dev, inode, position for {deliverfile}
+our ($dev, $inode, $position) = ();
+
+# define savepos
+sub savepos {
+  my ($deliverfile, $position, $tracefile) = @_;
+  if (open FH, ">$tracefile") {
+  	($dev, $inode) = (stat $deliverfile)[0,1];
+	print FH "$dev $inode $position";
+	close FH;
+  } else {
+	return undef;
+  }
+}
+
+# define loadpos
+sub loadpos {
+  my $tracefile = shift;
+  if (open FH, "<$tracefile") {
+	while (<FH>) {
+  		($dev, $inode, $position) = (split /\s+/)[0,1,2];
+		last;
+	}
+	close FH;
+  }
+}
+
+# Main body begin
+unless (-f $deliverfile) {
+  print "{noop}:{str}:{ deliver log file [$deliverfile] not exists. }";
+  exit $state_noop;
+}
+# 1. load position from tracefile
+loadpos ($tracefile);
+unless ($dev && $inode && $position) {  # maybe first running
+  savepos ($deliverfile,0,$tracefile);	# save position again
+  loadpos ($tracefile);			# load position again
+}
+# 2. read file dev,inode, checking rotated or not ?
+my ($nowdev, $nowinode) = (stat $deliverfile)[0,1];
+if ($dev ne $nowdev || $inode ne $nowinode) {	# maybe deliverfile logrotated
+  savepos ($deliverfile,0,$tracefile);		# save position again
+  loadpos ($tracefile);				# load position again
+}
+# 3. open authpri file and goto last position directly
+unless (open FH, "<$deliverfile") {
+  print "{noop}:{str}:{ open deliver log file [$deliverfile] failed. }";
+  exit $state_noop;
+}
+seek (FH,$position,0);		# directly goto last position
+# 4. scan authpri file record
+my @record = ();
+while (<FH>) {
+  chomp;
+  next if m/ result:\[0\] /i;			# skip success
+  next unless m/ is_finished:\[1\] /i;  	# skip unfinished
+  if (m/\A(.+? .+? ).*from_digest:\[(.+?)\] to_digest:\[(.+?)\] subject_digest:\[(.+?)\] size:\[(.+?)\] .*module_type:\[(.+?)\] .*response:\[(.+?)\] client_ip:.*\Z/i) {
+	push @record,  "$1 [$2] -> [$3] ### subject: [$4] ### size: $5  ### type $6 ### result: $7 ### ###";
+  }
+}
+# 5. read nower position and save again.
+my $newpos = tell(FH);
+savepos ($deliverfile, $newpos, $tracefile);
+close FH;
+# 6. prepare last output
+my $number = @record;
+if ($number == 0) {
+  print "{noop}:{str}:{no deliver fail event found}";
+  exit $state_noop;
+} else {
+  while (@record) {
+  	$result .= shift @record;
+  }
+  $result = "$number deliver fail event | $number deliver fail event | " . $result;
+  print "{ok}:{str}:{$result}";
+  exit $state_ok;
+}

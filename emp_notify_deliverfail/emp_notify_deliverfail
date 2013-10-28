@@ -19,6 +19,37 @@ if ($? != 0) {
   chomp $deliverfile;
 }
 
+our $eminfo_basedir = `eminfo basedir`;
+if ($? != 0) {
+  chomp $eminfo_basedir;
+} else {
+  $eminfo_basedir = '/usr/local/eminfo/';
+}
+
+our @attendlst = ();
+our $attendlst = `eminfo v $filename attention_list`;
+if ($? == 0) {
+  chomp $attendlst;
+  $attendlst =~ s/\A\s*file://;
+  unless(-f $attendlst) {
+	if (-f $eminfo_basedir.$attendlst) {
+  		$attendlst = $eminfo_basedir.$attendlst;
+	}
+  } 
+  if (-f $attendlst) {
+	if(open FH, $attendlst) {
+		while (<FH>) {
+			next if (/\A\s*\Z/ || /\A\s*#/ || /\A\s*;/);
+			push @attendlst,  split /\s+/;
+		}
+		close FH;
+	}
+  } else {
+	@attendlst = split /\s+/, $attendlst;
+  }
+}
+# print "@attendlst\n";
+
 # define dev, inode, position for {deliverfile}
 our ($dev, $inode, $position) = ();
 
@@ -68,15 +99,39 @@ unless (open FH, "<$deliverfile") {
   print "{noop}:{str}:{ open deliver log file [$deliverfile] failed. }";
   exit $state_noop;
 }
-seek (FH,$position,0);		# directly goto last position
+seek (FH,$position,0);				# directly goto last position
 # 4. scan authpri file record
 my @record = ();
+my $wholeline = '';
 while (<FH>) {
   chomp;
-  next if m/ result:\[0\] /i;			# skip success
-  next unless m/ is_finished:\[1\] /i;  	# skip unfinished
-  if (m/\A(.+? .+? ).*from_digest:\[(.+?)\] to_digest:\[(.+?)\] subject_digest:\[(.+?)\] size:\[(.+?)\] .*module_type:\[(.+?)\] .*response:\[(.+?)\] client_ip:.*\Z/i) {
-	push @record,  "$1 [$2] -> [$3] ### subject: [$4] ### size: $5  ### type $6 ### result: $7 ### ###";
+  unless (m/\A\-/) {				# if not seperated line:  ----
+	$wholeline .= $_;			# add $_ into $wholeline
+	next;
+  } else { 					# process $wholeline now
+  	if ($wholeline =~ m/ result:\[0\] /i) {			# skip success
+		$wholeline = '';
+		next;
+	}
+  	unless ($wholeline =~ m/ is_finished:\[1\] /i) {	# skip unfinished
+		$wholeline = '';
+		next;
+	}
+  	if ($wholeline =~ m/\A.*from_digest:\[(.+?)\] to_digest:\[(.+?)\] subject_digest:\[(.+?)\] size:\[(.+?)\] .*module_type:\[(.+?)\] .*response:\[(.+?)\] client_ip:.* log_time:\[(.+?)\].*\Z/i) {
+		my ($from,$to,$subject,$size,$mtype,$result,$time) = ($1,$2,$3,$4,$5,$6,$7);
+		my ($sec,$min,$hour,$day,$mon,$year) = localtime($time);
+		$time = sprintf("%d-%d-%d %d:%d:%d",$year+1900,$mon+1,$day,$hour,$min,$sec);
+		if (grep(/\A$from\Z/i, @attendlst) || grep(/\A$to\Z/i, @attendlst)) {
+			my $record = "$time [$from] -> [$to] ### ";
+			$record .= "subject: [$subject] ### ";
+			$record .= "size: [$size] ### ";
+			$record .= "type: [$mtype] ### ";
+			$record .= "<font color=red>result: [$result]</font> ### ";
+			$record .= "###";
+			push @record, $record;
+		}
+  	}
+	$wholeline = '';
   }
 }
 # 5. read nower position and save again.

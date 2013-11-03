@@ -21,9 +21,9 @@ if ($? != 0) {
 
 our $eminfo_basedir = `eminfo basedir`;
 if ($? != 0) {
-  chomp $eminfo_basedir;
-} else {
   $eminfo_basedir = '/usr/local/eminfo/';
+} else {
+  chomp $eminfo_basedir;
 }
 
 our @attendlst = ();

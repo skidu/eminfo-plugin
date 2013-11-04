@@ -73,7 +73,7 @@ seek (FH,$position,0);		# directly goto last position
 my @record = ();
 while (<FH>) {
   chomp;
-  if (m/\A(\w+ \d+ .+? ).*Accepted password for (\w+) from (.+) port (\d+) .*\Z/i) {
+  if (m/\A(\w+ +\d+ +.+? ).*Accepted password for (\w+) from (.+) port (\d+) .*\Z/i) {
 	push @record,  "$1: user [$2] login from [$3:$4] ###";
   }
 }

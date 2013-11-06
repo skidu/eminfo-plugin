@@ -1,0 +1,276 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="/usr/local/eminfo/"
+if [ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ]; then
+        source ${BASE_DIR}/bin/include 2>&-
+else
+        echo -en "{unknown}:{str}:{include file not exists or empty}"
+        exit 3
+fi
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=          ### { ok | warn | crit | unknown | noop }
+TYPE=           ### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+mysqlcli_path=$( read_eminfo_config emp_sync_user524 mysqlcli_path )
+mysql_conn_conf=$( read_eminfo_config emp_sync_user524 mysql_conn_conf )
+mysql_time_out=$( read_eminfo_config emp_sync_user524 mysql_time_out )
+
+# if null or invalid set default.
+[ -z "${mysqlcli_path}" ] && mysqlcli_path="/usr/local/eyou/mail/opt/mysql/bin/mysqladmin"
+[ -z "${mysql_conn_conf}" ] && mysql_conn_conf="127.0.0.1,3306,eyou,eyou"
+[ -z "${mysql_time_out}" -o ! -z "${mysql_time_out//[0-9]}" ] && mysql_time_out=10
+
+logfile="${LOG_DIR}/emp_sync_user524.log"
+savefail_file="${LOG_DIR}/emp_sync_userfail.log"
+
+# check function here
+check(){
+  local result= addnum=0 delnum=0 modnum=0 errnum=0 total=0
+  local change_tmpfile="/var/tmp/emp_sync_user524.mailv5_userchanges"
+
+  # various precheck
+  [ -f "/usr/bin/iconv" -a -x "/usr/bin/iconv" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="util: [/usr/bin/iconv] not prepared.";
+        return
+  }
+
+  [ -f "/usr/bin/nc" -a -x "/usr/bin/nc" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="util: [/usr/bin/nc] not prepared.";
+        return
+  }
+
+  [ -f "/var/eyou/sbin/eyou_control" -a -x "/var/eyou/sbin/eyou_control" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="util: [/var/eyou/sbin/eyou_control] not prepared.";
+        return
+  }
+
+  [ -f "${mysqlcli_path}" -a -x "${mysqlcli_path}" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="util: [${mysqlcli_path}] not prepared.";
+        return
+  }
+
+  local Mailv4_ConfigFile="/var/eyou/etc/eyou_smtpd_config"
+  [ -f "${Mailv4_ConfigFile}"  -a -s "${Mailv4_ConfigFile}" ] || {
+	EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="file: [${Mailv4_ConfigFile}] not prepared.";
+        return
+  } 
+
+  local Ldap_Host="$(/bin/awk '($0~/^ldaphost\>/) {print $2;exit}' "${Mailv4_ConfigFile}" | tr -d '\r\n')"
+  [ -z "${Ldap_Host}" ] && {
+	EXIT_STATUS=${STATE_CRITICAL};
+        LEVEL="crit";
+        TYPE="str";
+        CONTENT="config: [ldaphost] not prepared in file: [${Mailv4_ConfigFile}].";
+        return
+  }
+
+  local mysql_host="$(echo -e "${mysql_conn_conf}"|awk -F"," '{print $1}')"
+  local mysql_port="$(echo -e "${mysql_conn_conf}"|awk -F"," '{print $2}')"
+  local mysql_user="$(echo -e "${mysql_conn_conf}"|awk -F"," '{print $3}')"
+  local mysql_pass="$(echo -e "${mysql_conn_conf}"|awk -F"," '{print $4}')"
+  if [ -z "${mysql_pass}" ]; then
+	local Mysql="${mysqlcli_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} --connect-timeout ${mysql_time_out} -D eyou_mail "
+  else
+	local Mysql="${mysqlcli_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} -p"${mysql_pass}" --connect-timeout ${mysql_time_out} -D eyou_mail"
+  fi
+
+  read_changes() {
+	${Mysql} -s -e "select acct_id,acct_name,domain_name,password,action_name,action_time from user_sync;"
+  }
+
+  del_log_items() {
+	local line= rc= errstuff=
+ 	line=( $* )
+	errstuff=$( ${Mysql} -s -e " delete from user_sync where acct_id='${line[0]}' and action_name='${line[4]}' and action_time='${line[5]}' limit 1; "  2>&1 1>/dev/null )
+	rc=$?
+	if [ "${rc}" == "0" ]; then
+		write_log -f ${logfile} "delete sync job [${line[@]}] from middle table OK"
+	else
+		write_log -f ${logfile} "delete sync job [${line[@]}] from middle table ERROR: [${errstuff}]"
+		return ${rc}
+	fi
+  }
+
+  genstr() {
+	local line=; line=( $* )  
+	local uid=${line[1]} domain=${line[2]} password=${line[3]} action=${line[4]}
+	local pass_type="$(echo -e "${password}" | grep -E -o "\{[^\}\{]+\}" | tr -d '\{\}' | tr '[A-Z]' '[a-z]')"
+
+	# 1. check pass type
+	case "${pass_type}" in 
+	"h-md5-b")
+		password="$(echo -e "${password}" | sed -e 's#h-md5-b#md5#' )"	;;
+	"h-crypt")
+		password="$(echo -e "${password}" | sed -e 's#h-crypt#crypt#' )"  ;;
+	"none")
+		password="$(echo -e "${password}" | sed -e 's#none#clear#' )"	;;
+	"h-sha1-b")
+		password="$(echo -e "${password}" | sed -e 's#h-sha1-b#sha#' )"	;;
+	"h-smd5")
+		password="$(echo -e "${password}" | sed -e 's#h-smd5#SMD5#' )"	;;
+	*)
+		write_log -f ${logfile} "password type: [${pass_type}] invalid" 
+		return 1  							;;
+	esac
+
+	# 2. check action type
+	case "${action}" in
+	"ADD")
+		echo "add{"  ;;
+	"DEL")
+		echo "del{"  ;;
+	"MOD")
+		echo "mod{"  ;;
+	*)
+		write_log -f ${logfile} "action type: [${action}] invalid"
+		return 1     ;;
+	esac
+
+	echo "uid=${uid}"
+	echo "domain=${domain}"
+	echo "userPassword="${password}""
+	echo "}"
+	echo "."
+	echo "exit"
+	return 0
+  }
+
+  # on error exit
+  : > "${change_tmpfile}"
+  err=$( read_changes 2>&1  1> "${change_tmpfile}" )  ### stdout => file, stderr => ${err}
+  if [ ! -z "${err}" ]; then
+	EXIT_STATUS=${STATE_CRITICAL};
+        LEVEL="crit";
+        TYPE="str";
+        CONTENT="GET User Changes ERROR | select mailv5 user changes error | ["${err}"] "
+	write_log -f ${logfile} "${CONTENT}"
+	return 
+  else
+	write_log -f ${logfile} "select mailv5 user changes succeed"
+  fi
+
+  # on error exit
+  info=$( /usr/bin/nc -w 5 -vz ${Ldap_Host} 389 2>&1 ) 
+  if [ "$?" != "0" ]; then
+	EXIT_STATUS=${STATE_CRITICAL};
+        LEVEL="crit";
+        TYPE="str";
+        CONTENT="LDAP Connect ERROR | check ldaphost connection failed: [${Ldap_Host}:389] | [${info}] "
+        write_log -f ${logfile} "${CONTENT}"
+        return
+  else
+	write_log -f ${logfile} "check ldaphost connection succeed: [${Ldap_Host}:389] | [${info}] "
+  fi
+
+  # on empty exit
+  [ -f "${change_tmpfile}" -a -s "${change_tmpfile}" ] || {
+	EXIT_STATUS=${STATE_NOOP};
+        LEVEL="noop";
+        TYPE="str";
+        CONTENT="No Changes. Nothing to do"
+	write_log -f ${logfile} "${CONTENT}"
+	return 
+  }
+
+  # begin to loop all changes.
+  while read -a line
+  do	
+	((total++))
+	result="${result} ### ### "
+
+	case "${line[4]}" in
+	"ADD")
+		((addnum++))	;;
+	"DEL")
+		((delnum++))	;;
+	"MOD")
+		((modnum++))	;;
+	esac
+
+	write_log -f ${logfile} ""
+	write_log -f ${logfile} "caught mailv5 user change event: [${line[@]}]"
+	result="${result} caught mailv5 user change event: ["${line[@]//[\{\}]/%}"] ### "
+	
+	script_str=$( genstr ${line[@]} )
+	if [ "$?" != "0" ]; then
+		write_log -f ${logfile} "generating eyouv4 script strings error. NEXT"
+		result="${result} $(html_red "generating eyouv4 script strings error. NEXT") ### "
+		write_log -f ${savefail_file} "generating eyouv4 script strings error on [${line[@]}]"
+		del_log_items  ${line[@]}
+		((errnum++))
+		continue 
+	else
+		write_log -f ${logfile} "generating eyouv4 script strings [${script_str}] OK"
+		result="${result} generating eyouv4 script strings ["${script_str//[\{\}]/%}"] OK ###"
+	fi
+	
+	script_result=$( echo -e "${script_str}" | /var/eyou/sbin/eyou_control -a 2>&1 | /usr/bin/iconv -f gbk -t utf8 2>&1)
+	write_log -f ${logfile} "eyouv4 script result: [${script_result}]"
+	if [ "$(echo -e "${script_result}" | grep -E -o "+000")" == "" ]; then
+		write_log -f ${logfile} "SYNC USER CHANGES ERROR"
+		result="${result} $(html_red "eyouv4 script result: [${script_result}]") ###"
+		write_log -f ${savefail_file} "eyouv4 script result error on [${line[@]}]"
+		del_log_items  ${line[@]}
+		((errnum++))
+		continue
+	else
+		write_log -f ${logfile} "SYNC USER CHANGES SUCCESS"
+		result="${result} eyouv4 script result: [${script_result}] ###"
+		del_log_items  ${line[@]}
+	fi
+
+
+  done < "${change_tmpfile}"
+  write_log -f ${logfile} ""
+  write_log -f ${logfile} "==========================================================================================="
+  write_log -f ${logfile} "SYNC FINISHED: Total:${total} ERROR:${errnum} ADD:${addnum} DEL:${delnum} MOD:${modnum} "
+  write_log -f ${logfile} "==========================================================================================="
+  write_log -f ${logfile} ""
+  write_log -f ${logfile} ""
+
+  [ "${errnum}" == "0" ] && {
+	EXIT_STATUS=${STATE_OK};
+        LEVEL="ok";
+        TYPE="str";
+        CONTENT="SYNC USER CHANGES OK | ${total} changes sync succeed: ADD:${addnum}  DEL:${delnum}  MOD:${modnum} | ${result} "
+  } || {
+	EXIT_STATUS=${STATE_CRITICAL};
+        LEVEL="crit";
+        TYPE="str";
+        CONTENT="SYNC USER CHANGES CRITICAL | ${errnum}/${total} changes sync failed: ADD:${addnum}  DEL:${delnum}  MOD:${modnum} | ${result} "
+  }
+}
+
+check
+
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

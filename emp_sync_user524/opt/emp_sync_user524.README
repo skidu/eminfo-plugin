@@ -1,0 +1,69 @@
+
+此插件程序运行在eyoumail 5/8版邮件服务器上: 负责同步5/8版用户的增加/删除/密码修改到4版LDAP
+
+
+说明: 
+   以下5/8版邮件的五类密码类型对应写入4版LDAP,除此以外的密码类型会返回ERROR
+   对应关系如下: 
+	"{h-md5-b}"   =>  "{md5}"
+	"{h-crypt}"   =>  "{crypt}"
+	"{none}"      =>  "{clear}"
+	"{h-sha1-b}"  =>  "{sha}"
+	"{h-smd5}"    =>  "{SMD5}"
+
+=============
+使用步骤:
+=============
+
+1.) 先在5/8版邮件服务器的Mysql上导入 trg.sql, 创建中间表和触发器.
+	# mysql -D eyou_mail < trg.sql
+
+2.) 在5/8版服务器上安装一个4版邮件, 并停掉4版所有进程.
+    
+  2.1) 修改 eyou_smtpd_config 的 ldaphost 地址为远程4版邮件的LDAP地址
+		ldaphost	192.168.112.131
+
+  2.2) 执行 /var/eyou/sbin/count_users 测试LDAP访问没问题
+
+  2.3) 插件不会同步域的增删该，因此需要4版LDAP中的域提前创建好
+       执行 /var/eyou/sbin/eyou_control -a , 用4版接口命令创建5版中存在的域
+
+3) 启动eminfo
+	eminfo start
+
+4) 单次测试运行插件
+	eminfo r emp_sync_user524
+
+5) 激活插件, 放入eminfo调度计划中 (默认1min同步一次)
+    	eminfo e emp_sync_user524
+
+6.) 测试: 
+	在5/8版管理员界面上批量添加/修改/删除5000用户测试
+
+
+用户同步中间表:   user_sync
+Mysql触发器在:    eyou_mail.user_basic
+	1.) trigger_sync_user_add 
+	2.) trigger_sync_user_del_mod
+
+同步日志文件在:   eminfo/log/sync_user524.log
+同步失败记录在:   eminfo/log/sync_userfail.log 
+日志参与eminfo的日志回滚.
+
+
+
+更新:
+----------
+2012-11-1   update_1:   
+
+1.  修正了 password_type invalid 的时候, gen_str 返回 action_name{ 导致插件僵死的问题.
+2.  修正了 域别名导致 trigger 报错的问题.
+3.  补充了 Readme, 步骤2需要在LDAP中创建域.
+
+
+----------
+2013-11-4   update_2:
+
+1. 修正了 用户别名导致 trigger 报错的问题.
+2. rpm包作为eminfo的单独插件发布.
+3. 更新readme.

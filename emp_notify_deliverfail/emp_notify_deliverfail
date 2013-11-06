@@ -121,7 +121,7 @@ while (<FH>) {
 		my ($from,$to,$subject,$size,$mtype,$result,$time) = ($1,$2,$3,$4,$5,$6,$7);
 		my ($sec,$min,$hour,$day,$mon,$year) = localtime($time);
 		$time = sprintf("%d-%d-%d %d:%d:%d",$year+1900,$mon+1,$day,$hour,$min,$sec);
-		if (grep(/\A$from\Z/i, @attendlst) || grep(/\A$to\Z/i, @attendlst)) {
+		if (grep(/\A\Q$from\E\Z/i, @attendlst) || grep(/\A\Q$to\E\Z/i, @attendlst)) {
 			my $record = "$time [$from] -> [$to] ### ";
 			$record .= "subject: [$subject] ### ";
 			$record .= "size: [$size] ### ";

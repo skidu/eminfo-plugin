@@ -8,6 +8,7 @@ Packager: 	Zhang Guangzheng <zhang.elinks@gmail.com>
 BuildRoot: 	/var/tmp/%{name}-%{version}-%{release}-root
 Source0: 	emp_notify_deliverfail-1.0-p1.tgz
 Requires:	eminfo >= 1.0-beta6
+Requires:	perl >= 5.8.8
 
 %description 
 eyou plugins for eminfo:

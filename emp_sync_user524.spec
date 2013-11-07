@@ -8,6 +8,8 @@ Packager: 	Zhang Guangzheng <zhang.elinks@gmail.com>
 BuildRoot: 	/var/tmp/%{name}-%{version}-%{release}-root
 Source0: 	emp_sync_user524-1.0-p2.tgz
 Requires:	eminfo >= 1.0-beta6
+Requires:	glibc-common >= 2.5, nc >= 1.84
+Requires:	gawk >= 3.1.5
 
 %description 
 eyou plugins for eminfo:

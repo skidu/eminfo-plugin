@@ -67,5 +67,5 @@ cat > ~/.rpmmacros <<EOF
 %_topdir ${path}/
 EOF
 
-/usr/bin/rpmbuild -bb "${specfile}" ### >/dev/null 2>&1
+/usr/bin/rpmbuild -bb "${specfile}" >/dev/null 2>&1
 find "${path}"/RPMS/ -type f -iname "*.rpm" -print

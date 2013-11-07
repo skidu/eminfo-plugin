@@ -16,24 +16,37 @@ clean
 	exit 1
 }
 
-name=$(awk -F: '($1~/Name/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
-version=$(awk -F: '($1~/Version/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
-source0=$(awk -F: '($1~/Source0/){print $2}' "${basedir}"/eminfo-plugin.spec 2>&-|tr -d ' \t')
+if [ -z "${1}" ]; then
+  specfile="${basedir}/eminfo-plugin.spec"
+  name=$(awk -F: '($1~/Name/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
+  version=$(awk -F: '($1~/Version/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
+  source0=$(awk -F: '($1~/Source0/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
+  plugins=( 
+  	memory 
+  	mysql_ping
+  	http_svr
+  	tcp_conn
+  	sysload
+  	disk_fs
+  	cpu_usage
+  	mail_queue
+  	port
+  	process
+  	notify_syslogin
+  )
+else
+  if [ -d "${basedir}/${1}" ]; then
+	specfile="${basedir}/${1}.spec"
+	name=$(awk -F: '($1~/Name/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
+	version=$(awk -F: '($1~/Version/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
+	source0=$(awk -F: '($1~/Source0/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
+	plugins=( ${1} )
+  else
+	echo "directory [$1] not exist"
+	exit 1
+  fi
+fi
 
-plugins=( 
-  memory 
-  mysql_ping
-  http_svr
-  tcp_conn
-  sysload
-  disk_fs
-  cpu_usage
-  mail_queue
-  port
-  process
-  notify_syslogin
-  emp_notify_deliverfail
-)
 mkdir -p "${path}"/SOURCES/${name}-${version}
 for p in `echo "${plugins[*]}"`
 do
@@ -48,11 +61,11 @@ done
 cd "${path}"/SOURCES/
 tar -czf "${source0}" ${name}-${version}
 rm -rf "${path}"/SOURCES/${name}-${version}
-cp -a "${basedir}"/eminfo-plugin.spec  "${path}"/SPECS/
+cp -a "${specfile}" "${path}"/SPECS/
 
 cat > ~/.rpmmacros <<EOF
 %_topdir ${path}/
 EOF
 
-/usr/bin/rpmbuild -bb "${path}"/SPECS/eminfo-plugin.spec >/dev/null 2>&1
+/usr/bin/rpmbuild -bb "${specfile}" >/dev/null 2>&1
 find "${path}"/RPMS/ -type f -iname "*.rpm" -print

@@ -42,7 +42,7 @@ else
 	source0=$(awk -F: '($1~/Source0/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
 	plugins=( ${1} )
   else
-	echo "directory [$1] not exist"
+	echo "plugin directory [$1] not exist"
 	exit 1
   fi
 fi
@@ -67,5 +67,5 @@ cat > ~/.rpmmacros <<EOF
 %_topdir ${path}/
 EOF
 
-/usr/bin/rpmbuild -bb "${specfile}" >/dev/null 2>&1
+/usr/bin/rpmbuild -bb "${specfile}" ### >/dev/null 2>&1
 find "${path}"/RPMS/ -type f -iname "*.rpm" -print

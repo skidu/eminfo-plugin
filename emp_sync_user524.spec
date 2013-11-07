@@ -25,7 +25,11 @@ mkdir -p $RPM_BUILD_ROOT/usr/local/eminfo/plugin/
 mkdir -p $RPM_BUILD_ROOT/usr/local/eminfo/conf/
 mkdir -p $RPM_BUILD_ROOT/usr/local/eminfo/handler/
 mkdir -p $RPM_BUILD_ROOT/usr/local/eminfo/opt/
-cp -a *  $RPM_BUILD_ROOT/usr/local/eminfo/
+p="emp_sync_user524"
+cp -a ${p}/${p}          $RPM_BUILD_ROOT/usr/local/eminfo/plugin/
+cp -a ${p}/conf/${p}.ini $RPM_BUILD_ROOT/usr/local/eminfo/conf/
+cp -a ${p}/handler/      $RPM_BUILD_ROOT/usr/local/eminfo/
+cp -a ${p}/opt/          $RPM_BUILD_ROOT/usr/local/eminfo/
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && [ -d $RPM_BUILD_ROOT ] && rm -rf $RPM_BUILD_ROOT

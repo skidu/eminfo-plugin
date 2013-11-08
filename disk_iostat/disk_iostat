@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="/usr/local/eminfo/"
+if [ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ]; then
+        source ${BASE_DIR}/bin/include 2>&-
+else
+        echo -en "{unknown}:{str}:{include file not exists or empty}"
+	exit 3
+fi
+
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}
+
+Usage	 :   data
+
+Output   :   {devpath} -> {mpoint} : %{util}
+	     {details}
+Example  :   
+/dev/sda1 -> /boot : 0.006%
+sda1              0.00     0.00    0.03    0.00     0.20     0.00     8.14     0.00   13.38  12.51   0.03
+sda1              0.00     0.00    0.00    0.00     0.00     0.00     0.00     0.00    0.00   0.00   0.00
+sda1              0.00     0.00    0.00    0.00     0.00     0.00     0.00     0.00    0.00   0.00   0.00
+/dev/mapper/VolGroup-lv_root -> / : 81.08%
+dm-0              0.00     0.00    0.32   28.26     7.06   226.06     8.16     8.58  299.08   0.23   0.65
+dm-0              0.00     0.00    0.00 8340.00     0.00 66720.00     8.00  2919.10  422.35   0.12  99.90
+dm-0              0.00     0.00    0.00 8996.00     0.00 71968.00     8.00  4309.16  317.64   0.11 100.10
+
+EOF
+exit 0;
+}
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=    	### { ok | warn | crit | unknown | noop }
+TYPE=    	### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+dev_list=$( read_eminfo_config disk_iostat dev_list )
+util_uplimit=$( read_eminfo_config disk_iostat util_uplimit )
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${util_uplimit}" -o ! -z "${util_uplimit//[0-9]}" ] && util_uplimit=50
+
+# check function here
+check(){
+
+  if [ -z "${dev_list}" ]; then
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="config {dev_list} empty, nothing to do.";
+	return
+  fi
+
+  if [ ! -x "/usr/bin/iostat" ]; then
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="Util: [/usr/bin/iostat] not prepared.";
+	return
+  fi
+
+  # collect data
+  local iostat_data=$( /usr/bin/iostat -d -x ${dev_list} 1 5 2>&1 )
+  
+  oknum=0 warnnum=0 result=
+  for dev in ${dev_list}
+  do
+	# skip device that not exists
+	[ -e "${dev}" ] || continue
+
+	if [ -L "${dev}" ]; then	# in case of lvm
+		dev_tmpname="$(/bin/readlink ${dev} 2>&-)"
+		devname="${dev_tmpname##*/}"
+	else
+		devname="${dev##*/}"
+	fi
+
+	util=$( echo -e "${iostat_data}" | /bin/awk '($1~/^'${devname}'\>/){x+=$NF} END{print x/5}' 2>&- )
+	[ -z "${util}" -o ! -z "${util//[0-9.]}" ] && util=0
+
+	mpoint=$( /bin/awk -v d="${dev}" '($1==d){print $2}' /etc/mtab 2>&- )
+	[ -z "${mpoint}" ] && mpoint="NULL"
+
+  	# output data and exit if MODE=1
+  	[ "${MODE}" == "1" ] && {
+		echo "${dev} -> ${mpoint} : ${util}%"
+		echo "$(echo -e "${iostat_data}" | /bin/awk '($1~/^'${devname}'\>/){print;}' 2>&-)"
+		continue
+  	}
+
+  	if [ "$(echo  "${util} >= ${util_uplimit}" | bc 2>&-)" == "1" ]; then
+		((warnnum++))
+		result="${result} $(html_red "${dev} (${mpoint}) io busy percent: [${util}%] >= uplimit: [${util_uplimit}%]") ###"
+  	else
+		((oknum++))
+		result="${result} ${dev} (${mpoint}) io busy percent: [${util}%] <= uplimit: [${util_uplimit}%] ###"
+  	fi
+  done
+
+  # exit if MODE=1
+  [ "${MODE}" == "1" ] && exit
+
+  local iostat_data=$(echo -e "${iostat_data}"|sed -e 's/$/###/g' | tr -d '\n')
+  if [ ${warnnum} -gt 0 ]; then
+	EXIT_STATUS=${STATE_WARNING};
+	LEVEL="warn";
+	TYPE="str";
+	CONTENT="IOStat Check WARNING | ${warnnum}/$((${warnnum}+${oknum})) check failed. | ${result} ### ${iostat_data}"
+  else
+	EXIT_STATUS=${STATE_OK};
+	LEVEL="ok";
+	TYPE="str";
+	CONTENT="IOStat Cehck OK | ${oknum}/$((${warnnum}+${oknum})) check success. | ${result} ### ${iostat_data}"
+  fi
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

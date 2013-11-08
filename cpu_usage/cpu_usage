@@ -15,7 +15,7 @@ Arguments:   {d|data|h|help}
 
 Usage	 :   data
 
-Output   :   usa_pct% wait_pct%_sys_pct% usr_pct%
+Output   :   usa_pct% wait_pct% sys_pct% usr_pct%
 Example  :   0.4 0.2 0 0
 EOF
 exit 0;
@@ -82,34 +82,34 @@ check(){
   oknum=0 warnnum=0 result=
   if [ "$(echo  "${p_usage} >= ${uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} $(html_red "cpu usage: [$p_usage] >= uplimit: [${uplimit}%]") ###"
+	result="${result} $(html_red "cpu usage: [${p_usage}%] >= uplimit: [${uplimit}%]") ###"
   else
 	((oknum++))
-	result="${result} cpu usage: [$p_usage] <= uplimit: [${uplimit}%] ###"
+	result="${result} cpu usage: [${p_usage}%] <= uplimit: [${uplimit}%] ###"
   fi
 
   if [ "$(echo  "${wa_usage} >= ${wa_uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} $(html_red "cpu wait usage: [$wa_usage] >= uplimit: [${wa_uplimit}%]") ###"
+	result="${result} $(html_red "cpu wait usage: [${wa_usage}%] >= uplimit: [${wa_uplimit}%]") ###"
   else
 	((oknum++))
-	result="${result} cpu wait usage: [$wa_usage] <= uplimit: [${wa_uplimit}%] ###"
+	result="${result} cpu wait usage: [${wa_usage}%] <= uplimit: [${wa_uplimit}%] ###"
   fi
 
   if [ "$(echo  "${sy_usage} >= ${sy_uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} $(html_red "cpu sys usage: [$sy_usage] >= uplimit: [${sy_uplimit}%]") ###"
+	result="${result} $(html_red "cpu sys usage: [${sy_usage}%] >= uplimit: [${sy_uplimit}%]") ###"
   else
 	((oknum++))
-	result="${result} cpu sys usage: [$sy_usage] <= uplimit: [${sy_uplimit}%] ###"
+	result="${result} cpu sys usage: [${sy_usage}%] <= uplimit: [${sy_uplimit}%] ###"
   fi
 
   if [ "$(echo  "${us_usage} >= ${uplimit}" | bc 2>&-)" == "1" ]; then
 	((warnnum++))
-	result="${result} $(html_red "cpu user usage: [$us_usage] >= uplimit: [${us_uplimit}%]") ###"
+	result="${result} $(html_red "cpu user usage: [${us_usage}%] >= uplimit: [${us_uplimit}%]") ###"
   else
 	((oknum++))
-	result="${result} cpu user usage: [$us_usage] <= uplimit: [${us_uplimit}%] ###"
+	result="${result} cpu user usage: [${us_usage}%] <= uplimit: [${us_uplimit}%] ###"
   fi
 
   if [ ${warnnum} -gt 0 ]; then

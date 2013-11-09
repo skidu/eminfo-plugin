@@ -17,6 +17,7 @@ Requires:		perl >= 5.8.8, grep >= 2.5.1
 Requires:		tar >= 1.15.1, gzip >= 1.3.5
 Requires:		curl >= 7.15.5, bc >= 1.06
 Requires:		findutils >= 4.2.27, net-tools >= 1.60
+Requires:		bind-utils >= 9.3.3
 Requires(post): 	chkconfig
 Requires(preun): 	chkconfig, initscripts
 Requires(postun): 	coreutils >= 5.97

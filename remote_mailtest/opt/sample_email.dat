@@ -1,4 +1,4 @@
-# default file which [remote_mail_test]->sample_email_file specified. 
+# default file which [remote_mailtest]->sample_email_file specified. 
 #
 # Fromat:  @domain   :::  SMTP-Server-Host   :::  Target EmailBox
 #
@@ -11,6 +11,8 @@
 
 @live.cn    :::   		:::    root_bbk@live.cn
 @gmail.com  :::   		:::    zhang.elinks@gmail.com
-@126.com    :::   		:::    root_bbk@126.com  linxue061zgz@126.com
+@126.com    :::   		:::    eyou_uetest@126.com root_bbk@126.com
+@163.com    :::			:::    eyou_uetest@163.com
 @sina.com   :::   		:::    linxue061zgz@sina.com
-@qq.com     :::  mx1.qq.com  	:::    1052257495@qq.com
+@qq.com     :::  mx1.qq.com  	:::    eyou-uetest@qq.com
+@yahoo.com  :::			:::    sunshine.0137@yahoo.com

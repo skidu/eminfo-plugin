@@ -77,7 +77,7 @@ check(){
         EXIT_STATUS=${STATE_UNKNOWN};
         LEVEL="unknown";
         TYPE="str";
-        CONTENT="Command: [/bin/df] or [/sbin/tune2fs] not prepared.";
+        CONTENT="Util: [/bin/df] or [/sbin/tune2fs] not prepared.";
         return
   }
 

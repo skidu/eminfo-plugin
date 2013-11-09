@@ -49,8 +49,12 @@ TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-dev_list=$( read_eminfo_config disk_iostat dev_list )
-util_uplimit=$( read_eminfo_config disk_iostat util_uplimit )
+if [ "${MODE}" == "1" ]; then
+	dev_list=$2
+else
+	dev_list=$( read_eminfo_config disk_iostat dev_list )
+	util_uplimit=$( read_eminfo_config disk_iostat util_uplimit )
+fi
 
 # if null return STATE_UNKNOWN.
 

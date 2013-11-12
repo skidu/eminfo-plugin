@@ -39,6 +39,8 @@ if ($? == 0) {
   if (-f $attendlst) {
 	if(open FH, $attendlst) {
 		while (<FH>) {
+			chomp;
+			s/\s//g;
 			next if (/\A\s*\Z/ || /\A\s*#/ || /\A\s*;/);
 			push @attendlst,  split /\s+/;
 		}

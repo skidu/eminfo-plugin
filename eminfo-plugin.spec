@@ -1,12 +1,12 @@
 Summary: 	plugins for eminfo
 Name: 		eminfo-plugin
 Version: 	0.1
-Release: 	beta3
+Release: 	beta4
 License: 	GPLv3
 Group:  	Extension
 Packager: 	Zhang Guangzheng <zhang.elinks@gmail.com>
 BuildRoot: 	/var/tmp/%{name}-%{version}-%{release}-root
-Source0: 	eminfo-plugin-0.1-beta3.tgz
+Source0: 	eminfo-plugin-0.1-beta4.tgz
 Requires:		eminfo >= 1.0, setup >= 2.5.58
 Requires: 		coreutils >= 5.97, bash >= 3.1
 Requires:		e2fsprogs >= 1.39, procps >= 3.2.7
@@ -65,6 +65,9 @@ done
 %postun
 
 %changelog
+* Tue Nov 12 2013 Guangzheng Zhang <zhang.elinks@gmail.com>
+- release eminfo-plugin-0.1-beta4.rpm
+- add plugin disk_iostat remote_mailtest
 * Tue Oct 29 2013 Guangzheng Zhang <zhang.elinks@gmail.com>
 - release eminfo-plugin-0.1-beta3.rpm
 - add perl plugin notify_syslogin emp_notify_deliverfail

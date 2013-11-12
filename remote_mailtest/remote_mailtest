@@ -98,7 +98,7 @@ check() {
   local remote_domain=$( echo -e "${content}" | awk -F":::" '{print $1}' )
   for x in `echo "${remote_domain}"`
   do
-	local str1=  str2=  subject="Remote Test Mail from @${base_domain} at $(date +%F_%T)"
+	local str1=  str2=  subject="Remote Test Mail from [${base_domain}] at $(date +%F_%T)"
 	### first set mx-host if specified.
 	local mx_host=$( echo -e "${content}" | awk -F ":::" '($1~/'${x}'\>/) {print $2;exit;}' | tr -d '[ \t]' )
 	if [ -z "${mx_host}" ]; then
@@ -115,16 +115,17 @@ check() {
 	xlist=$( echo -e "${content}" | awk -F ":::" '($1~/'${x}'\>/) {$1=$2="";print;exit;}' )
 	for y in `echo "${xlist}"`
 	do
-		str1=$( ${SENDEMAIL} -f "eminfo@${base_domain}" -t "${y}" -s "${mx_host}" -u "${subject}" -o message-file="${mail_body_file}"  -o fqdn="${helo_greeting_fqdn}" )
+		str1=$( ${SENDEMAIL} -f "eminfo@${base_domain}" -t "${y}" -s "${mx_host}" -u "${subject}" -o message-file="${mail_body_file}"  -o fqdn="${helo_greeting_fqdn}" -o message-charset=utf8 2>&1 )
+		rc=$?
   		str2=$( echo -e "${str1}" | awk -F "sendEmail" '{$1="";print}' | awk -F: '{for(x=2;x<=NF;x++) {printf $x}}')
-		if [ "$?" == "0" ]; then
-			result=" $str remote mail to [${y}] return [${str2}] ### "
-			result=" $str talked with mx-host: [${mx_host}] ### "
-			result=" $str subject: [${subject}] ### ### "
+		if [ "${rc}" == "0" ]; then
+			result=" $result remote mail to [${y}] return [${str2}] ### "
+			result=" $result talked with mx-host: [${mx_host}] ### "
+			result=" $result subject: [${subject}] ### ### "
 		else
-			result=" $str $(html_red "remote mail to [${y}] return [${str2}]") ### "
-			result=" $str talked with mx-host: [${mx_host}] ### "
-			result=" $str subject: [${subject}] ### ###"
+			result=" $result $(html_red "remote mail to [${y}] return [${str1}]") ### "
+			result=" $result talked with mx-host: [${mx_host}] ### "
+			result=" $result subject: [${subject}] ### ###"
 			((errnum++))
 		fi
 		((total++))
@@ -135,12 +136,12 @@ check() {
         EXIT_STATUS=${STATE_OK};
         LEVEL="ok";
         TYPE="str";
-        CONTENT="Remote Mail Test OK | ${total}/${total} remote mail test succeed | "${str}" "
+        CONTENT="Remote Mail Test OK | ${total}/${total} remote mail test succeed | "${result}" "
   else
         EXIT_STATUS=${STATE_CRITICAL};
         LEVEL="crit";
         TYPE="str";
-        CONTENT="Remote Mail Test CRITICAL | ${errnum}/${total} remote mail test failed | "${str}" "
+        CONTENT="Remote Mail Test CRITICAL | ${errnum}/${total} remote mail test failed | "${result}" "
   fi
 }
 

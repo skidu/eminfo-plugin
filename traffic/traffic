@@ -9,6 +9,21 @@ else
 	exit 3
 fi
 
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}  {ifdev}  {interval}  {number}
+
+Usage:   data  eth0  1  10
+
+Output:   
+Example:
+EOF
+exit 0;
+}
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
 # Return Codes
 STATE_OK=0
 STATE_WARNING=1
@@ -23,20 +38,24 @@ TYPE=    	### { str| file }
 CONTENT=        ### { strings | /path/to/result.file }
 
 # Read plugin config value here
-port_list=$( read_eminfo_config check_port port_list )
-
-# if null return STATE_UNKNOWN.
+if [ "${MODE}" == "1" ]; then
+        ifdev_lst="$2"
+	interval="$3"
+	number="$4"
+else
+	ifdev_lst=$( read_eminfo_config traffic ifdev_lst )
+fi
 
 # if null or invalid set default.
-[ -z "${check_list//[ ]}" ] && check_list=" eth0:10M/s:10M/s:0:0 "
+[ -z "${ifdev_lst}" ] && ifdev_lst=" eth0:5M/s:10M/s:0:0 "
 
 # check function here
 check(){
 
 ### return code: 0|1|2
 #  0: OK
-#  1: CRIT
-#  2: UNKNOWN:(ptype or port or tmout invalid)
+#  1: WARN
+#  2: UNKNOWN
 check_single(){
 
   local inet_face=$1 ibytes_limit=$2 obytes_limit=$3 ipacks_limit=$4 opacks_limit=$5
@@ -45,7 +64,8 @@ check_single(){
 
   [ -z "${ipacks_limit}" ] && ipacks_limit=0  ### set default, 0 means unlimited
   [ -z "${opacks_limit}" ] && opacks_limit=0  ### set default, 0 means unlimited
-  if [ -z "${inet_face//[ ]}" -o -z "${ibytes_limit//[ ]}" -o -z "${obytes_limit//[ ]}" ]; then     ### return UNKNOWN
+
+  if [ -z "${inet_face}" -o -z "${ibytes_limit}" -o -z "${obytes_limit}" ]; then     ### return UNKNOWN
 	((unknum++))
 	output="$(html_red "inet_face/ibytes_limit/obytes_limit required: inet_face=[${inet_face}] or ibytes_limit=[${ibytes_limit}] or obytes_limit=[${obytes_limit}] must be specified") ### ### "
 	return_code=2
@@ -66,16 +86,14 @@ check_single(){
 		ipacks=$(cat /sys/class/net/${inet_face}/statistics/rx_packets 2>&-)
 		opacks=$(cat /sys/class/net/${inet_face}/statistics/tx_packets 2>&-)
 		if [ -z "${ibytes}" -o ! -z "${ibytes//[0-9]}" -o -z "${obytes}" -o ! -z "${obytes//[0-9]}" ]; then
-			output="${output} Sampling [$i]: $(html_red "ibytes=[${ibytes}] or obytes=[${obytes}] is not numberic") ### ### "
-			return_code=2
+			output="${output} $(html_red "[$i]: ibytes=[${ibytes}] or obytes=[${obytes}] not numberic") ### ### "
 			echo -e "${output}"
-			return ${return_code}
+			return 2
 		elif [ -z "${ipacks}" -o ! -z "${ipacks//[0-9]}" -o -z "${opacks}" -o ! -z "${opacks//[0-9]}" ]; then
-			output="${output} Sampling [$i]: $(html_red "ipacks=[${ipacks}] or opacks=[${opacks}] is not numberic") ### ### "
-			return_code=2
+			output="${output} $(html_red "[$i]: ipacks=[${ipacks}] or opacks=[${opacks}] not numberic") ### ### "
 			echo -e "${output}"
-			return ${return_code}		
-		else							### port/tmout ok, continue
+			return 2
+		else
 			[ "${l_ibytes}" == "0" ] && l_ibytes=${ibytes}
 			[ "${l_obytes}" == "0" ] && l_obytes=${obytes}
 			[ "${l_ipacks}" == "0" ] && l_ipacks=${ipacks}
@@ -97,18 +115,10 @@ check_single(){
   return ${return_code}
 }
 
-  local result=" ### Check List: [${port_list}] ### ### "
-  local oknum=0 errnum=0 unknum=0 total=0
-  [ -f "/usr/bin/nc" -a -x "/usr/bin/nc" ] || {
-	EXIT_STATUS=${STATE_UNKNOWN};
-        LEVEL="unknown";
-        TYPE="str";
-        CONTENT="utilite [/usr/bin/nc] not prepared."
-        return
-  }
+  local result=" ### Check List: [${ifdev_lst}] ### ### "
+  local oknum=0 warnnum=0 unknum=0 total=0
 
-  # for port_num in `echo "${port_list}" | tr ',' ' '`
-  for pairs in `echo "${port_list}" | tr ',' ' '`
+  for pairs in `echo "${ifdev_lst}" | tr ',' ' '`
   do
 	((total++))
 	sepnum=$(echo -e "${pairs}" | awk -F":" 'END{print --NF}')
@@ -153,30 +163,30 @@ check_single(){
 	"0")
 		((oknum++))	;;
 	"1")
-		((errnum++))	;;
+		((warnnum++))	;;
 	"2")
 		((unknum++))	;;
 	esac
 	result="${result} "${tmpstr}" "
   done
 
-  [ "${errnum}" != "0" ] && {
-	EXIT_STATUS=${STATE_CRITICAL};
-	LEVEL="crit";
+  [ "${warnnum}" != "0" ] && {
+	EXIT_STATUS=${STATE_WARNING};
+	LEVEL="warn";
 	TYPE="str";
-	CONTENT="Check Port CRITICAL | total: ${errnum}/${total} check failed. | "${result}" "
+	CONTENT="Traffic Flow Check WARNING | total: ${warnnum}/${total} check failed. | "${result}" "
   } || {
 	[ "${oknum}" == "${total}" ] && {
 		EXIT_STATUS=${STATE_OK};
 		LEVEL="ok";
 		TYPE="str";
-		CONTENT="Check Port OK | total: ${oknum}/${total} check success. | "${result}" "
+		CONTENT="Traffic Flow Check OK | total: ${oknum}/${total} check success. | "${result}" "
 	} || {
 		[ "${unknum}" != "0" ] && {
 			EXIT_STATUS=${STATE_UNKNOWN};
 			LEVEL="unknown";
 			TYPE="str";
-			CONTENT="Check Port UNKNOWN | total: ${unknum}/${total} check unknown. | "${result}" "
+			CONTENT="Traffic Flow Check UNKNOWN | total: ${unknum}/${total} check unknown. | "${result}" "
 		}
 	}
   } 

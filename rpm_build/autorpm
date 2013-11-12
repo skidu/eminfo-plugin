@@ -22,17 +22,19 @@ if [ -z "${1}" ]; then
   version=$(awk -F: '($1~/Version/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
   source0=$(awk -F: '($1~/Source0/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
   plugins=( 
+  	port
+  	process
   	memory 
   	mysql_ping
   	http_svr
   	tcp_conn
   	sysload
   	disk_fs
+	disk_iostat
   	cpu_usage
   	mail_queue
-  	port
-  	process
   	notify_syslogin
+	remote_mailtest
   )
 else
   if [ -d "${basedir}/${1}" ]; then

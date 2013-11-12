@@ -1,12 +1,12 @@
 Summary: 	event notify on mail deliver fail for eyoumailv5/8
 Name: 		emp_notify_deliverfail
-Version: 	1.0
+Version: 	1.1
 Release: 	p1
 License: 	GPLv3
 Group:  	Extension
 Packager: 	Zhang Guangzheng <zhang.elinks@gmail.com>
 BuildRoot: 	/var/tmp/%{name}-%{version}-%{release}-root
-Source0: 	emp_notify_deliverfail-1.0-p1.tgz
+Source0: 	emp_notify_deliverfail-1.1-p1.tgz
 Requires:	eminfo >= 1.0-beta6
 Requires:	perl >= 5.8.8
 
@@ -49,5 +49,8 @@ cp -a ${p}/opt/          $RPM_BUILD_ROOT/usr/local/eminfo/
 %postun
 
 %changelog
+* Tue Nov 12 2013 Guangzheng Zhang <zhang.elinks@gmail.com>
+- 1.1 release
+- bugfix on read attendlst file line
 * Thu Nov  7 2013 Guangzheng Zhang <zhang.elinks@gmail.com>
 - first buildrpm for 1.0 release

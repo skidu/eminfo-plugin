@@ -63,8 +63,8 @@ fi
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${filesystem_fstype//[ ]}" ] && filesystem_fstype="ext3 ext4"
-[ -z "${exclude_mpoint//[ ]}" ] && exclude_mpoint="/dev/shm /dev /boot /sys /proc"
+[ -z "${filesystem_fstype}" ] && filesystem_fstype="ext2 ext3 ext4"
+[ -z "${exclude_mpoint}" ] && exclude_mpoint=
 [ -z "${disk_spare_space_uplimit}" -o ! -z "${disk_spare_space_uplimit//[0-9]}" ] && disk_spare_space_uplimit=10000
 [ -z "${disk_spare_percent_uplimit}" -o ! -z "${disk_spare_percent_uplimit//[0-9]}" ] && disk_spare_percent_uplimit=10
 [ -z "${inode_spare_percent_uplimit}" -o ! -z "${inode_spare_percent_uplimit//[0-9]}" ] && inode_spare_percent_uplimit=10
@@ -91,7 +91,8 @@ check(){
 
   local result= mpoint= warnnum=0
 
-  result="$(html_green "Check FileSystem Stat on [${filesystem_fstype}]") ### ###"
+  result="FSTYPE: [${filesystem_fstype}] ### ###"
+  result="${result} ### FileSystem Stat ### "
   for t in `echo "${filesystem_fstype}"`
   do
 	devices=$(awk '($3~/\<'${t}'\>/){print $1}' "/etc/mtab" 2>&-|tr '\n' ' ')
@@ -112,7 +113,7 @@ check(){
   	done
   done
 
-  result="${result} ### ### $(html_green "Check IO R/W on [${filesystem_fstype}]") ### ###"
+  result="${result} ### IO Test ###"
   for t in `echo "${filesystem_fstype}"`
   do  
         mpoint=$(awk '($3~/\<'${t}'\>/){print $2}' "/etc/mtab" 2>&-|tr '\n' ' ')
@@ -131,14 +132,14 @@ check(){
                         continue
                 }   
                 if [ "${rc}" == "0" ]; then
-                        result="${result} (${t}) ${m} -> IO R/W Success ### "
+                        result="${result} (${t}) ${m} -> iotest Success ### "
                 else
-                        result="${result} $(html_red "(${t}) ${m} -> IO R/W Warning: ${ioerr}") ### "
+                        result="${result} $(html_red "(${t}) ${m} -> iotest warning: ${ioerr}") ### "
                 fi  
         done
   done
 
-  result="${result} ### ### $(html_green "Space Check") ### ### "
+  result="${result} ### Space Check ### "
   for t in `echo "${filesystem_fstype}"`
   do
 	mpoint=$(awk '($3~/\<'${t}'\>/){print $1}' "/etc/mtab" 2>&-|tr '\n' ' ')
@@ -187,7 +188,7 @@ check(){
 	done
   done
 
-  result="${result} ### ### $(html_green "Inode Check") ### ### "
+  result="${result} ### Inode Check ### "
   for t in `echo "${filesystem_fstype}"`
   do
 	mpoint=$(awk '($3~/\<'${t}'\>/){print $1}' "/etc/mtab" 2>&-|tr '\n' ' ')
@@ -235,12 +236,12 @@ check(){
 	EXIT_STATUS=${STATE_WARNING};
 	LEVEL="warn";
 	TYPE="str";
-	CONTENT="Check Disk Spare WARNING | ${warnnum} check failed.| ${result} "
+	CONTENT="Disk/FS Check WARNING | ${warnnum} check failed.| ${result} "
   } || {
 	EXIT_STATUS="${STATE_OK}"
 	LEVEL="ok"
 	TYPE="str"
-	CONTENT="Check Disk Spare OK | fsstat,iorw,space,inode check success. | ${result} "
+	CONTENT="Disk/FS Check OK | fsstat,iotest,space,inode check success. | ${result} "
   }
 
 }

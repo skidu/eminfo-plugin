@@ -21,13 +21,13 @@ if ($? != 0) {
   chomp $addr_port;
 }
 
-our $time_out = `eminfo v $filename time_out`
+our $time_out = `eminfo v $filename time_out`;
 if ($? != 0) {
   $time_out = 5;
 } else {
   chomp $time_out;
   $time_out = 5 unless $time_out;
-  $time_out = 5 if $time_out ~ /\D/;
+  $time_out = 5 if $time_out =~ m/\D/;
 }
 
 our $pop_user = `eminfo v $filename pop_user`;
@@ -44,3 +44,64 @@ if ($? != 0) {
   chomp $pop_pass;
 }
 
+# Main body begin
+my ($total,$oknum,$critnum,$unknnum) = (0,0,0,0);
+
+my @addr_pair = split /\s+/, $addr_port;
+while(@addr_pair) {
+  my ($pop_host, $pop_port) = (split /:/, shift @addr_pair)[0,1];
+  if (!defined $pop_host || !defined $pop_port) {
+	$result .= "<font color=yellow> pop_host or pop_port not defined </font> ### ### ";
+	$unknnum++;
+	next;
+  }
+  if ($pop_port =~ /\D/) {
+	$result .= "$pop_host:$pop_port pop port not numberic ### ### ";
+	$unknnum++;
+	next;
+  }
+  my $pop=Net::POP3->new(
+	Host    =>	$pop_host,
+	Port	=> 	$pop_port,
+	Timeout =>	($time_out =~ /\D/)?5:$time_out,
+  );
+  unless (defined $pop) {
+	$result .= "<font color=red> connect [$pop_host:$pop_port] failed in $time_out seconds, return [$@] </font> ### ### ";
+	$critnum++;
+	next;
+  } else {
+	(my $welcome = $pop->banner()) =~ s/[\r\n]//g;
+	$result .= "connect [$pop_host:$pop_port] return welcome: [$welcome] ### ";
+  }
+  if(defined $pop_user && defined $pop_pass) {
+	my ($rcode,$response);
+	$pop->user($pop_user);
+	($response = $pop->message()) =~ s/[\r\n]//g;
+	$rcode = $pop->code();
+	unless ($rcode =~ m/\A2/) {
+		$result .= "<font color=red> pop login, USER return [code=$rcode message=$response] </font> ### ###";
+		$critnum++;
+		next;		### goto next right here
+	} else {
+		$result .= "pop login, USER return [code=$rcode message=$response] ### ";
+	}
+	$pop->pass($pop_pass);
+	($response = $pop->message()) =~ s/[\r\n]//g;
+	$rcode = $pop->code();
+	unless ($rcode =~ m/\A2/) {
+		$result .= "<font color=red> pop login, PASS return [code=$rcode message=$response] </font> ### ###";
+		$critnum++;
+		next;
+	} else {
+		$result .= "pop login, PASS return [code=$rcode message=$response] ### ";
+		$oknum++;
+	}
+  } else {
+	$result .= " pop_user or pop_pass not defined, pop login test skip ### ";
+  }
+
+  $result .= " ### ";
+  
+}
+
+print "$result\n";

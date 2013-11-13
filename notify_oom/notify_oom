@@ -1,3 +1,95 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+
+# return codes
+our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
+
+# return stuff
+our ($rc, $result) = (0,'');
+
+our $filename = (split /\//, __FILE__)[-1];
+our $tracefile = "/var/tmp/$filename.trace";
+
+# read plugin config here
+our $messagefile = `eminfo v $filename messagefile`;
+if ($? != 0) {
+  $messagefile = '/var/log/messages';
+} else {
+  chomp $messagefile;
+}
+
+# define dev, inode, position for {messagefile}
+our ($dev, $inode, $position) = ();
+
+# define savepos
+sub savepos {
+  my ($messagefile, $position, $tracefile) = @_;
+  if (open FH, ">$tracefile") {
+  	($dev, $inode) = (stat $messagefile)[0,1];
+	print FH "$dev $inode $position";
+	close FH;
+  } else {
+	return undef;
+  }
+}
+
+# define loadpos
+sub loadpos {
+  my $tracefile = shift;
+  if (open FH, "<$tracefile") {
+	while (<FH>) {
+  		($dev, $inode, $position) = (split /\s+/)[0,1,2];
+		last;
+	}
+	close FH;
+  }
+}
+
+# Main body begin
+unless (-f $messagefile) {
+  print "{noop}:{str}:{ message file [$messagefile] not exists. }";
+  exit $state_noop;
+}
+# 1. load position from tracefile
+loadpos ($tracefile);
+unless ($dev && $inode && $position) {  # maybe first running
+  savepos ($messagefile,0,$tracefile);	# save position again
+  loadpos ($tracefile);			# load position again
+}
+# 2. read file dev,inode, checking rotated or not ?
+my ($nowdev, $nowinode) = (stat $messagefile)[0,1];
+if ($dev ne $nowdev || $inode ne $nowinode) {	# maybe messagefile logrotated
+  savepos ($messagefile,0,$tracefile);		# save position again
+  loadpos ($tracefile);				# load position again
+}
+# 3. open message file and goto last position directly
+unless (open FH, "<$messagefile") {
+  print "{noop}:{str}:{ open message file [$messagefile] failed. }";
+  exit $state_noop;
+}
+seek (FH,$position,0);		# directly goto last position
+# 4. scan message file record
+my @record = ();
+while (<FH>) {
+  chomp;
+  if (m/Out of Memory/i || m/oom-killer/i) {
+	push @record,  "<font color=red>$_</font> ###";
+  }
+}
+# 5. read nower position and save again.
+my $newpos = tell(FH);
+savepos ($messagefile, $newpos, $tracefile);
+close FH;
+# 6. prepare last output
+unless (@record) {
+  print "{noop}:{str}:{no oom event captured}";
+  exit $state_noop;
+} else {
+  while (@record) {
+  	$result .= shift @record;
+  }
+  $result = "oom event | captured oom event | " . $result;
+  print "{crit}:{str}:{$result}";
+  exit $state_crit;
+}

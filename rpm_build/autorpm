@@ -35,6 +35,7 @@ if [ -z "${1}" ]; then
   	mail_queue
   	notify_syslogin
 	remote_mailtest
+	notify_oom
   )
 else
   if [ -d "${basedir}/${1}" ]; then

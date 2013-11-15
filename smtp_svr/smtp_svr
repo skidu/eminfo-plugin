@@ -91,7 +91,7 @@ while(@addr_pair) {
 	$time_stop = Benchmark->new();
 	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
 	$time_duration = (split /\s+/, $time_duration )[0];
-	$result .= "connect [$smtp_host:$smtp_port] return welcome banner: [$welcome] ($time_duration seconds) ### ";
+	$result .= "connect [$smtp_host:$smtp_port] return welcome banner: ### [$welcome] ($time_duration seconds) ### ";
 	$time_start = Benchmark->new();		## reset time_start
   }
   if($smtp_user && $smtp_pass) {
@@ -101,6 +101,7 @@ while(@addr_pair) {
 	$response = Encode::decode("gb2312",$response);
 	$rcode = $smtp->code();
 	unless (defined $rcode && $rcode =~ m/\A2/) {
+		$rcode = '' if (!defined $rcode);
 		$result .= "<font color=red> smtp command: AUTH LOGIN return [code=$rcode message=$response] </font> ";
 		$critnum++;
 		goto ERREND;

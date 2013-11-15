@@ -83,7 +83,7 @@ while(@addr_pair) {
 	$time_stop = Benchmark->new();
 	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
 	$time_duration = (split /\s+/, $time_duration )[0];
-	$result .= "connect [$pop_host:$pop_port] return welcome banner: [$welcome] ($time_duration seconds) ### ";
+	$result .= "connect [$pop_host:$pop_port] return welcome banner: ### [$welcome] ($time_duration seconds) ### ";
 	$time_start = Benchmark->new();		## reset time_start
   }
   if($pop_user && $pop_pass) {
@@ -92,6 +92,7 @@ while(@addr_pair) {
 	($response = $pop->message()) =~ s/[\r\n]//g;
 	$rcode = $pop->code();
 	unless (defined $rcode && $rcode =~ m/\A2/) {
+		$rcode = '' if (!defined $rcode);
 		$result .= "<font color=red> pop command: USER return [code=$rcode message=$response] </font> ";
 		$critnum++;
 		goto ERREND;
@@ -106,6 +107,7 @@ while(@addr_pair) {
 	($response = $pop->message()) =~ s/[\r\n]//g;
 	$rcode = $pop->code();
 	unless (defined $rcode && $rcode =~ m/\A2/) {
+		$rcode = '' if (!defined $rcode);
 		$result .= "<font color=red> pop command: PASS return [code=$rcode message=$response] </font> ";
 		$critnum++;
 		goto ERREND;

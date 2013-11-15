@@ -23,11 +23,11 @@ if ($? != 0) {
 
 our $time_out = `eminfo v $filename time_out`;
 if ($? != 0) {
-  $time_out = 5;
+  $time_out = 10;
 } else {
   chomp $time_out;
-  $time_out = 5 unless $time_out;
-  $time_out = 5 if $time_out =~ m/\D/;
+  $time_out = 10 unless $time_out;
+  $time_out = 10 if $time_out =~ m/\D/;
 }
 
 our $pop_user = `eminfo v $filename pop_user`;
@@ -45,7 +45,8 @@ if ($? != 0) {
 }
 
 # Main body begin
-my ($total,$oknum,$critnum,$unknnum) = (0,0,0,0);
+my ($total,$critnum,$unknnum) = (0,0,0);
+my ($time_start,$time_stop,$time_duration);
 
 $result = "check list: $addr_port ### ### ";
 
@@ -63,47 +64,67 @@ while(@addr_pair) {
 	$unknnum++;
 	next;
   }
+
+  $time_start = Benchmark->new();
   my $pop=Net::POP3->new(
 	Host    =>	$pop_host,
 	Port	=> 	$pop_port,
-	Timeout =>	($time_out =~ /\D/)?5:$time_out,
+	Timeout =>	($time_out =~ /\D/)?10:$time_out,
   );
   unless (defined $pop) {
-	$result .= "<font color=red> connect [$pop_host:$pop_port] failed in $time_out seconds, return [$@] </font> ### ### ";
+	$result .= "<font color=red> connect [$pop_host:$pop_port] failed in $time_out seconds, return [$@] </font> ";
 	$critnum++;
-	next;
+	goto ERREND;
   } else {
 	(my $welcome = $pop->banner()) =~ s/[\r\n]//g;
-	$result .= "connect [$pop_host:$pop_port] return welcome ### [$welcome] ### ";
+	$time_stop = Benchmark->new();
+	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+	$time_duration = (split /\s+/, $time_duration )[0];
+	$result .= "connect [$pop_host:$pop_port] return welcome banner: [$welcome] ($time_duration seconds) ### ";
+	$time_start = Benchmark->new();		## reset time_start
   }
-  if(defined $pop_user && defined $pop_pass) {
+  if($pop_user && $pop_pass) {
 	my ($rcode,$response);
 	$pop->user($pop_user);
 	($response = $pop->message()) =~ s/[\r\n]//g;
 	$rcode = $pop->code();
 	unless ($rcode =~ m/\A2/) {
-		$result .= "<font color=red> pop command: USER return [code=$rcode message=$response] </font> ### ###";
+		$result .= "<font color=red> pop command: USER return [code=$rcode message=$response] </font> ";
 		$critnum++;
-		next;		### goto next right here
+		goto ERREND;
 	} else {
-		$result .= "pop command: USER return [code=$rcode message=$response] ### ";
+		$time_stop = Benchmark->new();
+		$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+		$time_duration = (split /\s+/, $time_duration )[0];
+		$result .= "pop command: USER return [code=$rcode message=$response] ($time_duration seconds) ### ";
+		$time_start = Benchmark->new();         ## reset time_start
 	}
 	$pop->pass($pop_pass);
 	($response = $pop->message()) =~ s/[\r\n]//g;
 	$rcode = $pop->code();
 	unless ($rcode =~ m/\A2/) {
-		$result .= "<font color=red> pop command: PASS return [code=$rcode message=$response] </font> ### ###";
+		$result .= "<font color=red> pop command: PASS return [code=$rcode message=$response] </font> ";
 		$critnum++;
-		next;
+		goto ERREND;
 	} else {
-		$result .= "pop command: PASS return [code=$rcode message=Authorized Success ($response)] ### ";
-		$oknum++;
+		$time_stop = Benchmark->new();
+		$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+		$time_duration = (split /\s+/, $time_duration )[0];
+		$result .= "pop command: PASS return [code=$rcode message=Authorized Success] ($time_duration seconds) ### ";
+		$time_start = Benchmark->new();         ## reset time_start
 	}
   } else {
-	$result .= " pop_user or pop_pass not defined, pop login test skip ### ";
+	$result .= " pop_user or pop_pass not defined, pop login test skip ### ### ";
   }
+  next;
 
-  $result .= " ### ";
+  ERREND: {
+	$time_stop = Benchmark->new();
+	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+	$time_duration = (split /\s+/, $time_duration )[0];
+	$result .= " ($time_duration seconds) ### ### ";
+	next;
+  }
 }
 # prepare last output
 if ($critnum > 0) {

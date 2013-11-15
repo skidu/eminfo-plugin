@@ -1,89 +1,137 @@
-#!/usr/bin/env bash
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+use Net::SMTP;
+use Encode;
+use Time::HiRes;
+use Benchmark ':hireswallclock';
+binmode(STDIN, ":encoding(utf8)");
+binmode(STDOUT, ":encoding(utf8)");
 
+# return codes
+our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
 
-BASE_DIR="/usr/local/eminfo/"
-if [ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ]; then
-        source ${BASE_DIR}/bin/include 2>&-
-else
-        echo -en "{unknown}:{str}:{include file not exists or empty}"
-	exit 3
-fi
+# return stuff
+our ($rc, $result) = (0,'');
 
-MODE=0
-[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+our $filename = (split /\//, __FILE__)[-1];
 
-
-# Return Codes
-STATE_OK=0
-STATE_WARNING=1
-STATE_CRITICAL=2
-STATE_UNKNOWN=3
-STATE_NOOP=4
-
-# Set Default
-EXIT_STATUS=0
-LEVEL=    	### { ok | warn | crit | unknown | noop }
-TYPE=    	### { str| file }
-CONTENT=        ### { strings | /path/to/result.file }
-
-# Read plugin config value here
-addr_port=$( read_eminfo_config smtp_svr addr_port )
-time_out=$( read_eminfo_config smtp_svr time_out )
-
-# if null or invalid set default.
-[ -z "${addr_port}" ] && addr_port="127.0.0.1:25"
-[ -z "${time_out}" -o ! -z "${time_out//[0-9]}" ] && time_out=3
-
-# check function here
-check(){
-  [ -f "/usr/bin/nc" -a -x "/usr/bin/nc" ] || {
-        EXIT_STATUS=${STATE_UNKNOWN};
-        LEVEL="unknown";
-        TYPE="str";
-        CONTENT="utilite [/usr/bin/nc] not prepared."
-        return
-  }
-
-  local total=  errnum=0  result=
-  for x in `echo "${addr_port}"`;
-  do
-	local addr=  port=  str1=  str2=
-	addr=$(echo "${x}" | awk -F: '{print $1}')
-	port=$(echo "${x}" | awk -F: '{print $NF}')
-  	str1=$( (echo -e "quit\n") | /usr/bin/nc -w ${time_out} ${addr} ${port} 2>&1 |head -n1 )
-  	str2=$( echo -e "${str1}" | grep -E -i -o "ok|ready|start|black ip|running|220|smtp|mta" )
-        # output data and exit if MODE=1
-        [ "${MODE}" == "1" ] && {
-                echo "${addr}:${port} ${str1}"
-                continue
-        }
-  	if [ -n "${str2}" ]; then
-		result=" ${result} check [${x}] return [${str1}] ### "
-  	else
-		((err_num++))
-		result=" ${result} $(html_red "check [${x}] return [${str1}]") ### "
-  	fi
-	((total++))
-  done
-
-  # exit if MODE=1
-  [ "${MODE}" == "1" ] && exit
-
-  [ "${err_num}" == "0" ] && {
-	EXIT_STATUS=${STATE_OK};
-	LEVEL="ok";
-	TYPE="str";
-	CONTENT="SMTP SVR OK | ${total}/${total} smtp check succeed | "${result}" "
-  } || {
-	EXIT_STATUS=${STATE_CRITICAL};
-	LEVEL="crit";
-	TYPE="str";
-	CONTENT="SMTP SVR CRITICAL | ${err_num}/${total} smtp check failed | "${result}" "
-  }
+# read plugin config here
+our $addr_port = `eminfo v $filename addr_port`;
+if ($? != 0) {
+  $addr_port = '127.0.0.1:25';
+} else {
+  chomp $addr_port;
 }
 
-check
+our $time_out = `eminfo v $filename time_out`;
+if ($? != 0) {
+  $time_out = 10;
+} else {
+  chomp $time_out;
+  $time_out = 10 unless $time_out;
+  $time_out = 10 if $time_out =~ m/\D/;
+}
 
-# output result and return exit status here.
-echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
-exit ${EXIT_STATUS}
+our $smtp_user = `eminfo v $filename smtp_user`;
+if ($? != 0) {
+  $smtp_user = '';
+} else {
+  chomp $smtp_user;
+}
+
+our $smtp_pass = `eminfo v $filename smtp_pass`;
+if ($? != 0) {
+  $smtp_pass = '';
+} else {
+  chomp $smtp_pass;
+}
+
+# Main body begin
+my ($total,$critnum,$unknnum) = (0,0,0);
+my ($time_start,$time_stop,$time_duration);
+
+$result = "check list: $addr_port ### ### ";
+
+my @addr_pair = split /\s+/, $addr_port;
+while(@addr_pair) {
+  $total++;
+  my ($smtp_host, $smtp_port) = (split /:/, shift @addr_pair)[0,1];
+  if (!defined $smtp_host || !defined $smtp_port) {
+	$result .= "<font color=yellow> smtp_host or smtp_port not defined </font> ### ### ";
+	$unknnum++;
+	next;
+  }
+  if ($smtp_port =~ /\D/) {
+	$result .= "<font color=yellow> $smtp_host:$smtp_port smtp port not numberic </font> ### ### ";
+	$unknnum++;
+	next;
+  }
+
+  $time_start = Benchmark->new();
+  my $smtp=Net::SMTP->new(
+	Host    =>	$smtp_host,
+	Port	=> 	$smtp_port,
+	Timeout =>	($time_out =~ /\D/)?10:$time_out,
+	# Hello   =>      'bbklab.hello',
+  );
+  unless (defined $smtp) {
+	if ($@) {
+		$@ =~ s/[\r\n]//g;
+		$@ = Encode::decode("gb2312",$@);
+		$result .= "<font color=red> connect [$smtp_host:$smtp_port] failed in $time_out seconds, return [$@] </font> ";
+	} else {
+		$result .= "<font color=red> connect [$smtp_host:$smtp_port] failed in $time_out seconds. </font> ";
+	}
+	$critnum++;
+	goto ERREND;
+  } else {
+	(my $welcome = $smtp->banner()) =~ s/[\r\n]//g;
+	$time_stop = Benchmark->new();
+	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+	$time_duration = (split /\s+/, $time_duration )[0];
+	$result .= "connect [$smtp_host:$smtp_port] return welcome banner: [$welcome] ($time_duration seconds) ### ";
+	$time_start = Benchmark->new();		## reset time_start
+  }
+  if($smtp_user && $smtp_pass) {
+	my ($rcode,$response);
+	$smtp->auth($smtp_user,$smtp_pass);
+	($response = $smtp->message()) =~ s/[\r\n]//g;
+	$response = Encode::decode("gb2312",$response);
+	$rcode = $smtp->code();
+	unless (defined $rcode && $rcode =~ m/\A2/) {
+		$result .= "<font color=red> smtp command: AUTH LOGIN return [code=$rcode message=$response] </font> ";
+		$critnum++;
+		goto ERREND;
+	} else {
+		$time_stop = Benchmark->new();
+		$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+		$time_duration = (split /\s+/, $time_duration )[0];
+		$result .= "smtp command: AUTH LOGIN return [code=$rcode message=$response] ($time_duration seconds) ### ### ";
+		$time_start = Benchmark->new();         ## reset time_start
+	}
+  } else {
+	$result .= " smtp_user or smtp_pass not defined, smtp login test skip ### ### ";
+  }
+  next;
+
+  ERREND: {
+	$time_stop = Benchmark->new();
+	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+	$time_duration = (split /\s+/, $time_duration )[0];
+	$result .= " ($time_duration seconds) ### ### ";
+	next;
+  }
+}
+# prepare last output
+if ($critnum > 0) {
+  print "{crit}:{str}:{ SMTP SVR CRITICAL | $critnum/$total smtp check critical | $result }";
+  exit $state_crit;
+} elsif ($unknnum > 0) {
+  print "{unknown}:{str}:{ SMTP SVR UNKNOWN | $unknnum/$total smtp check unknown | $result }";
+  exit $state_unkn;
+} else {
+  print "{ok}:{str}:{ SMTP SVR OK | $total/$total smtp check success | $result }";
+  exit $state_unkn;
+}

@@ -1,9 +1,12 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use utf8;
 use Net::POP3;
 use Time::HiRes;
 use Benchmark ':hireswallclock';
+binmode(STDIN, ":encoding(utf8)");
+binmode(STDOUT, ":encoding(utf8)");
 
 # return codes
 our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
@@ -60,7 +63,7 @@ while(@addr_pair) {
 	next;
   }
   if ($pop_port =~ /\D/) {
-	$result .= "$pop_host:$pop_port pop port not numberic ### ### ";
+	$result .= "<font color=yellow> $pop_host:$pop_port pop port not numberic </font> ### ### ";
 	$unknnum++;
 	next;
   }
@@ -88,7 +91,7 @@ while(@addr_pair) {
 	$pop->user($pop_user);
 	($response = $pop->message()) =~ s/[\r\n]//g;
 	$rcode = $pop->code();
-	unless ($rcode =~ m/\A2/) {
+	unless (defined $rcode && $rcode =~ m/\A2/) {
 		$result .= "<font color=red> pop command: USER return [code=$rcode message=$response] </font> ";
 		$critnum++;
 		goto ERREND;
@@ -102,7 +105,7 @@ while(@addr_pair) {
 	$pop->pass($pop_pass);
 	($response = $pop->message()) =~ s/[\r\n]//g;
 	$rcode = $pop->code();
-	unless ($rcode =~ m/\A2/) {
+	unless (defined $rcode && $rcode =~ m/\A2/) {
 		$result .= "<font color=red> pop command: PASS return [code=$rcode message=$response] </font> ";
 		$critnum++;
 		goto ERREND;
@@ -110,7 +113,7 @@ while(@addr_pair) {
 		$time_stop = Benchmark->new();
 		$time_duration = timestr(timediff($time_stop,$time_start),'noc');
 		$time_duration = (split /\s+/, $time_duration )[0];
-		$result .= "pop command: PASS return [code=$rcode message=Authorized Success] ($time_duration seconds) ### ";
+		$result .= "pop command: PASS return [code=$rcode message=Authorized Success] ($time_duration seconds) ### ### ";
 		$time_start = Benchmark->new();         ## reset time_start
 	}
   } else {

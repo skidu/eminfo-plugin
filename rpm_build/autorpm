@@ -30,6 +30,7 @@ if [ -z "${1}" ]; then
   	tcp_conn
   	sysload
   	disk_fs
+	disk_space
 	disk_iostat
   	cpu_usage
   	mail_queue

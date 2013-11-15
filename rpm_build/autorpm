@@ -36,6 +36,9 @@ if [ -z "${1}" ]; then
   	notify_syslogin
 	remote_mailtest
 	notify_oom
+	imap_svr
+	pop_svr
+	smtp_svr
   )
 else
   if [ -d "${basedir}/${1}" ]; then

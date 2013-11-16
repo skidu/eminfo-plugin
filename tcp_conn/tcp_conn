@@ -111,7 +111,7 @@ check_single(){
 		local output="$(html_red "Total: [${total}] >= Limit: [${limit}]" ) ### "
 		return_code=1
 	} || {
-		local output="$(html_green "Total: [${total}] < Limit: [${limit}]" ) ### "
+		local output="Total: [${total}] < Limit: [${limit}] ### "
 		return_code=0
 	}
   	local output="${output} $(echo -e "${conn_stat} ### ### IP Connect Stat: ### ${ip_stat} ### " | sed -e 's/$/ ### /g' | tr -d '\n' )"
@@ -146,7 +146,7 @@ check_single(){
   do
 	((total++))
 	local port="${port_num%%:*}" num="${port_num##*:}"
-	result="${result} ### $(html_green "Check Tcp-Port [${port}], Uplimit [${num}]") ### "
+	result="${result} ### Check Tcp-Port [${port}], Uplimit [${num}] ### "
 	[ -z "${port}" -o ! -z "${port//[0-9]}" -o -z "${num}" -o ! -z "${num//[0-9]}" ] && {
 		((unknum++))
 		result="${result} $(html_red "[${port_num}] is invalid: [${port}] or [${num}] not numberic") ### "

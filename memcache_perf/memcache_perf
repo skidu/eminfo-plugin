@@ -1,0 +1,106 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+use IO::Socket;
+use IO::Socket::INET;
+use Time::HiRes;
+use Benchmark ':hireswallclock';
+binmode(STDIN, ":encoding(utf8)");
+binmode(STDOUT, ":encoding(utf8)");
+
+$| = 1;
+
+# return codes
+our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
+
+# return stuff
+our ($rc, $result) = (0,'');
+
+our $filename = (split /\//, __FILE__)[-1];
+
+# read plugin config here
+our $addr_port = `eminfo v $filename addr_port`;
+if ($? != 0) {
+  $addr_port = '127.0.0.1:11211';
+} else {
+  chomp $addr_port;
+}
+
+our $time_out = `eminfo v $filename time_out`;
+if ($? != 0) {
+  $time_out = 10;
+} else {
+  chomp $time_out;
+  $time_out = 10 unless $time_out;
+  $time_out = 10 if $time_out =~ m/\D/;
+}
+
+# Main body begin
+my ($total,$critnum,$unknnum) = (0,0,0);
+my ($time_start,$time_stop,$time_duration);
+
+$result = "check list: $addr_port ### ### ";
+
+my @addr_pair = split /\s+/, $addr_port;
+while(@addr_pair) {
+  $total++;
+  my ($mem_host, $mem_port) = (split /:/, shift @addr_pair)[0,1];
+  if (!defined $mem_host || !defined $mem_port) {
+	$result .= "<font color=yellow> memcache_host or memcache_port not defined </font> ### ### ";
+	$unknnum++;
+	next;
+  }
+  if ($mem_port =~ /\D/) {
+	$result .= "<font color=yellow> $mem_host:$mem_port memcache port not numberic </font> ### ### ";
+	$unknnum++;
+	next;
+  }
+
+  $time_start = Benchmark->new();
+  my $memcache=IO::Socket::INET->new(
+	PeerAddr =>	$mem_host,
+	PeerPort => 	$mem_port,
+	Proto	 =>	'tcp',
+	Timeout =>	($time_out =~ /\D/)?10:$time_out,
+  );
+  unless (defined $memcache) {
+	if ($@) {
+		$@ =~ s/[\r\n]//g;
+		$result .= "<font color=red> connect [$mem_host:$mem_port] failed in $time_out seconds, return [$@] </font>";
+	} else {
+		$result .= "<font color=red> connect [$mem_host:$mem_port] failed in $time_out seconds. </font> ";
+	}
+	$critnum++;
+	goto ERREND;
+  } else {
+	(my $welcome = <$memcache>) =~ s/[\r\n]//g;
+	$time_stop = Benchmark->new();
+	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+	$time_duration = (split /\s+/, $time_duration )[0];
+	$result .= "connect [$mem_host:$mem_port] return welcome banner ### [$welcome] ($time_duration seconds) ### ";
+	$time_start = Benchmark->new();		## reset time_start
+  }
+  print $memcache "stats\n\r";			## if without \r, will hang up for 30s.
+  (my $response = <$memcache>) =~ s/[\r\n]//g;
+  next;
+
+  ERREND: {
+	$time_stop = Benchmark->new();
+	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
+	$time_duration = (split /\s+/, $time_duration )[0];
+	$result .= " ($time_duration seconds) ### ### ";
+	next;
+  }
+}
+# prepare last output
+if ($critnum > 0) {
+  print "{crit}:{str}:{ Memcache SVR CRITICAL | $critnum/$total memcache check critical | $result }";
+  exit $state_crit;
+} elsif ($unknnum > 0) {
+  print "{unknown}:{str}:{ Memcache SVR UNKNOWN | $unknnum/$total memcache check unknown | $result }";
+  exit $state_unkn;
+} else {
+  print "{ok}:{str}:{ Memcache SVR OK | $total/$total memcache check success | $result }";
+  exit $state_unkn;
+}

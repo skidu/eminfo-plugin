@@ -92,7 +92,7 @@ check() {
   elif [ -f "${v4_config}" -a -s "${v4_config}" ]; then
 	base_domain=$(awk '($1~/o_value\>/) {$1="";print;exit;}' "${v4_config}" 2>&- | tr -d '[" \t\n]' )
   fi
-  [ -z "${base_domain}" ] && base_domain="test.eyou.net"
+  [ -z "${base_domain}" ] && base_domain="demo.eyou.net"
 
   local content=$( awk -F":::" '($0!~/^[ \t]*$/ && $0!~/^[ \t]*#/)' "${sample_email_file}" 2>&- )
   local remote_domain=$( echo -e "${content}" | awk -F":::" '{print $1}' )

@@ -99,7 +99,7 @@ while(@addr_pair) {
   if($imap_user && $imap_pass) {
 	print $imap "A01 LOGIN $imap_user $imap_pass\n\r";	## if without \r, will hang up for 30s.
 	(my $response = <$imap>) =~ s/[\r\n]//g;
-	unless (defined $response && $response !~ m/\A(\w) (OK|SUCC|LOGIN|LOGON) /i) {
+	unless (defined $response && $response =~ m/\AA01 (OK|SUCC|LOGIN|LOGON) /i) {
 		$response = '' if (!defined $response);
 		$result .= "<font color=red> imap command: A01 LOGIN return [message=$response] </font> ";
 		$critnum++;

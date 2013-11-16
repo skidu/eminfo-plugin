@@ -82,7 +82,7 @@ while(@addr_pair) {
 		$@ = Encode::decode("gb2312",$@);
 		$result .= "<font color=red> connect [$smtp_host:$smtp_port] failed in $time_out seconds, return [$@] </font> ";
 	} else {
-		$result .= "<font color=red> connect [$smtp_host:$smtp_port] failed in $time_out seconds. </font> ";
+		$result .= "<font color=red> connect [$smtp_host:$smtp_port] failed in $time_out seconds, maybe in black ip list </font> ";
 	}
 	$critnum++;
 	goto ERREND;

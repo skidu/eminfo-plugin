@@ -128,15 +128,6 @@ if (-f $getconf && -x $getconf) {
 }
 ### %os_info
 
-my %cpu_info = (
-  'vendor'	=> '',
-  'type'	=> '',
-  'phy_num'	=> '',
-  'log_num'	=> '',
-  'speed'	=> '',
-);
-### %cpu_info
-
 my %mem_info = (
   'mem_total'		=> '',
   'swap_total'		=> '',
@@ -173,14 +164,32 @@ if (-f $input_devfile && -r $input_devfile) {
 }
 ### @input_dev
 
-my %raid_info = (
+my %cpu_info = (
   'vendor'	=> '',
+  'type'	=> '',
+  'phy_num'	=> '',
+  'log_num'	=> '',
+  'speed'	=> '',
+);
+### %cpu_info
+
+my %raid_info = (
+  'raid_vendor'		=> '',
+  'raid_memory'		=> '',
+  'raid_bbu'		=> '',
+  'raid_sid'		=> '',
+  'array_group'		=> '',
 );
 ### %raid_info
 
 my %inet_info = (
-
+  'inet_num'		=> '',
+  'inet_driver'		=> '',
+  'inet_vendor'		=> '',
+  'inet_speed'		=> '',
+  'inet_mode'		=> '',
+  'inet_mac'		=> '',
+  'inet_link'		=> '',
+  'inet_ip'		=> '',
 );
 ### %inet_info
-
-

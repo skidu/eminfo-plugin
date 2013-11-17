@@ -171,6 +171,42 @@ my %cpu_info = (
   'log_num'	=> '',
   'speed'	=> '',
 );
+my $cpu_file = '/proc/cpuinfo';
+if (-f $cpu_file && -r $cpu_file) {
+  open my $fh, "<", $cpu_file;
+  if ($fh) {
+	my (%tmp_phy_id, %tmp_speed, %tmp_vendor, %tmp_model);
+        while(<$fh>){
+                chomp;
+		$cpu_info{'log_num'}++ if (m/\Aprocessor\s+/i);
+		if (m/\Aphysical\s+id\s+/i) {
+			$tmp_phy_id{$_}++;
+		}
+		if (m/\Acpu\s+MHz\s+/i) {
+			(my $speed = (split /:/)[1]) =~ s/\A\s*//g;
+			$tmp_speed{$speed.'MHz'}++;
+		}
+		if (m/\Avendor_id\s+/i) {
+			(my $vendor = (split /:/)[1]) =~ s/\A\s*//g;
+			$tmp_vendor{$vendor}++;
+		}
+		if (m/\Amodel\s+name\s+/i) {
+			(my $model = (split /:/)[1]) =~ s/\A\s*//g;
+			$tmp_model{$model}++;
+		}
+        }
+	$cpu_info{'phy_num'} = scalar(keys %tmp_phy_id);
+	foreach my $key (keys %tmp_speed) {
+		$cpu_info{'speed'} .= '['.$tmp_speed{$key}.']: '.$key;
+	}
+	foreach my $key (keys %tmp_vendor) {
+		$cpu_info{'vendor'} .= '['.$tmp_vendor{$key}.']: '.$key;
+	}
+	foreach my $key (keys %tmp_model) {
+		$cpu_info{'type'} .= '['.$tmp_model{$key}.']: '.$key;
+	}
+  }
+}
 ### %cpu_info
 
 my %raid_info = (

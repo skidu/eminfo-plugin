@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use utf8;
+use Smart::Comments;
+
+my %product_info = (
+  'manufacturer'	=> 'system-manufacturer',
+  'productname'		=> 'system-product-name',
+  'productuuid'		=> 'system-uuid',
+  'serialnumber'	=> 'system-serial-number',
+  'biosvendor'		=> 'bios-vendor',
+  'biosversion'		=> 'bios-version',
+  'biosreleasedate'	=> 'bios-release-date',
+);
+my $dmidecode = '/usr/sbin/dmidecode';
+if (-f $dmidecode && -x $dmidecode) {
+  foreach my $key (keys %product_info) {
+    open my $fh, "$dmidecode -s $product_info{$key} 2>&1 |";
+    if ($fh) {
+	while (<$fh>){
+		chomp; $product_info{$key} = $_;
+	}
+    }
+  }
+}
+### %product_info
+
+my %uname_info = (
+  'arch'		=> '-m',
+  'os'			=> '-o',
+  'kernel_name'		=> '-s',
+  'kernel_release' 	=> '-r',
+  'hostname'		=> '-n',
+);
+my $uname = "/bin/uname";
+if (-f $uname && -x $uname) {
+ foreach my $key (keys %uname_info){
+   open my $fh, "$uname $uname_info{$key} 2>&1 |";
+   if ($fh) {
+	while(<$fh>){
+		chomp; $uname_info{$key} = $_;
+		last;
+	}
+   }
+ }
+}
+### %uname_info
+
+my %os_info = (
+  'os_distribute'	=> '',
+  'os_release'		=> '',
+  'os_codename'		=> '',
+  'os_descript'		=> '',
+  'os_bitmode'		=> '',
+);
+my $lsb_release = "/usr/bin/lsb_release";
+if (-f $lsb_release && -x $lsb_release) {
+  open my $fh, "$lsb_release -a 2>&1 |";
+  if ($fh) {
+	while(<$fh>){
+		chomp;
+		next if m/\ALSB Version/i;
+		my ($key,$value) = split /:/;
+		$key = 'os_distribute' if $key =~ /\ADistributor ID/i;
+		$key = 'os_release' if $key =~ /\ARelease/i;
+		$key = 'os_codename' if $key =~ /\ACodename/i;
+		$key = 'os_descript' if $key =~ /\ADescription/i;
+		$value =~ s/\A\s*//g;
+		$os_info{$key} = $value;
+	}
+  }
+}
+my $getconf = "/usr/bin/getconf";
+if (-f $getconf && -x $getconf) {
+  open my $fh, "$getconf LONG_BIT 2>&1 |";
+  if ($fh) {
+	while(<$fh>){
+		chomp; $os_info{'os_bitmode'} = $_;
+	}
+  }
+}
+### %os_info
+__END__
+
+my $cpu_info = (
+  'vendor'	=> '',
+  'type'	=> '',
+  'phy_num'	=> '',
+  'log_num'	=> '',
+  'speed'	=> '',
+);
+### %cpu_info
+
+my $mem_info = (
+
+);
+
+my $raid_info = (
+
+);
+
+my $inet_info = (
+
+);
+
+

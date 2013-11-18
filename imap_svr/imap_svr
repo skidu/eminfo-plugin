@@ -134,5 +134,5 @@ if ($critnum > 0) {
   exit $state_unkn;
 } else {
   print "{ok}:{str}:{ IMAP SVR OK | $total/$total imap check success | $result }";
-  exit $state_unkn;
+  exit $state_ok;
 }

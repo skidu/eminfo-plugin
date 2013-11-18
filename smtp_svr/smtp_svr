@@ -134,5 +134,5 @@ if ($critnum > 0) {
   exit $state_unkn;
 } else {
   print "{ok}:{str}:{ SMTP SVR OK | $total/$total smtp check success | $result }";
-  exit $state_unkn;
+  exit $state_ok;
 }

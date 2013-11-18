@@ -140,5 +140,5 @@ if ($critnum > 0) {
   exit $state_unkn;
 } else {
   print "{ok}:{str}:{ POP SVR OK | $total/$total pop check success | $result }";
-  exit $state_unkn;
+  exit $state_ok;
 }

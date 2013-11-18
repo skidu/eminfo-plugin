@@ -196,6 +196,7 @@ if (-f $cpu_file && -r $cpu_file) {
 		}
         }
 	$cpu_info{'phy_num'} = scalar(keys %tmp_phy_id);
+	$cpu_info{'phy_num'} = 1 if $cpu_info{'phy_num'} == 0;
 	foreach my $key (keys %tmp_speed) {
 		$cpu_info{'speed'} .= '['.$tmp_speed{$key}.']: '.$key;
 	}

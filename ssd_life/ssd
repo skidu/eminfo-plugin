@@ -1,0 +1,78 @@
+#!/bin/bash
+ 
+####################################
+## Program for check SSD life .
+## if life < 80%  print Warning
+## if life < 60%  print Critical 
+## else Print OK
+##
+## Created  @ 2011-07-01 by Author .
+## Modified @ 2011-07-0X by Author ,  Why ?
+##
+####################################3
+
+MEGACLI=/sbin/megacli
+SMARTCTL=/usr/local/sbin/smartctl
+Deviceidlist=""
+
+get_deviceid()
+{
+TMPFILE=tmp_ssdstat.$$
+
+$MEGACLI -PDList -aALL > $TMPFILE
+
+lineinfo=($(grep -n "Device Id"  $TMPFILE | awk -F ':' '{print $3":"$1}'))
+linecnt=$[ ${#lineinfo[*]} -1 ]
+Deviceidlist=""
+if [ ${linecnt} -ge 1 ] ; then
+for id in $(seq 0  ${linecnt}  )
+o
+  id1=id
+  id2=$[$id +1]
+  info1=${lineinfo[$id1]}
+  if [ ${id} -ne $linecnt ] ;  then
+    info2=${lineinfo[$id2]}
+  else
+    info2=L:$(cat $TMPFILE | wc -l)
+  fi
+  ## echo $info1,$info2
+  linenum1=$(echo $info1 | awk -F ':' '{print $2}')
+  DeviceID=$(echo $info1 | awk -F ':' '{print $1}')
+  linenum2=$(echo $info2 | awk -F ':' '{print $2}')
+  SSDCNT=$(sed -n "${linenum1},${linenum2} p" $TMPFILE | grep "Inquiry Data" | grep SSD | wc -l)
+  if [ $SSDCNT -ne 0 ] ; then
+        Deviceidlist="$Deviceidlist ${DeviceID}" 
+  fi
+done
+fi
+/bin/rm -f $TMPFILE
+}
+ 
+get_deviceid
+
+Warning=false
+Critical=false
+
+for Devid in $Deviceidlist
+do
+        LIFE=$( $SMARTCTL -a -d megaraid,${Devid} /dev/sda | grep Media_Wearout_Indicator | awk '{print $4}')
+        Lifevalue=$[ 10#$LIFE + 0 ]
+        resString=""
+        if [ $Lifevalue -le 60 ]; then
+                Critical=True
+                resString="::${resString}Dev${Devid}=${Lifevalue}"
+        elif [ $Lifevalue -le 80 ] ; then
+                Warning=True
+                resString="::${resString}Dev${Devid}=${Lifevalue}"
+        fi
+done
+
+if $Critical ; then
+        echo "Critical-SSD_Life${resString}"
+elif $Warning  ; then
+        echo "Warning-SSD_Life${resString}"
+else
+        echo "OK"
+fi
+
+exit 0

@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use utf8;
+use Smart::Comments;
+
+# return codes
+our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);
+
+# return stuff
+our ($rc, $result) = (0,'');
+
+our $filename = (split /\//, __FILE__)[-1];
+
+# read plugin config here
+our $max_limit = `eminfo v $filename max_limit`;
+if ($? != 0) {
+  $max_limit = 7500;
+} else {
+  chomp $max_limit;
+}
+$max_limit = 7500 if $max_limit =~ /\D/;
+
+# Main body begin
+my $procfile = "/proc/sys/fs/file-nr";
+if (-f $procfile && -r $procfile) {
+  open my $fh, "<", $procfile;
+  if ($fh) {
+  	my ($fd_allocated, $fd_free, $max_fd) = (split /\s+/, <$fh>)[0,1,2];
+  	close $fh;
+	if ($fd_allocated > $max_limit) {
+		$result = "allocated: $fd_allocated  > $max_limit ### allocated but free: $fd_free ### max allowed: $max_fd ###";
+		print "{crit}:{str}:{ File Descriptor Number CRITICAL | $fd_allocated file descriptor allocated | $result }";
+  		exit $state_crit;
+	} 
+	$result = "allocated: $fd_allocated  <= $max_limit ### allocated but free: $fd_free ### max allowed: $max_fd ###";
+	print "{ok}:{str}:{ File Descriptor Number OK | $fd_allocated file descriptor allocated | $result }";
+	exit $state_ok;
+  }
+} else {
+  print "{unknown}:{str}:{ File Descriptor Number UNKNOWN | proc file not prepared | $procfile not prepared }";
+  exit $state_unkn;  
+}

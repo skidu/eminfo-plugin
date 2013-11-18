@@ -78,7 +78,7 @@
 ### about mailv8
 #mailv8_mysql		1	.*/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my.cnf.+em_mysql.pid.*
 #mailv8_mysql_index	1	.*/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my_index.cnf.+em_mysql_index.pid.*
-#mailv8_mysql_log	1	.*/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my_log.cnf.+em_mysql_log.pid
+#mailv8_mysql_log	1	.*/mysqld.*--defaults-file=/usr/local/eyou/mail/etc/mysql/my_log.cnf.+em_mysql_log.pid.*
 #mailv8_mproxy		1	/usr/local/eyou/mail/opt/mproxy/libexec/mysql-proxy.*em_mproxy.pid.*
 #mailv8_mproxy_index	1	/usr/local/eyou/mail/opt/mproxy/libexec/mysql-proxy.*em_mproxy_index.pid.*
 #mailv8_httpd            3       /usr/local/eyou/mail/opt/bin/httpd.+start.* 

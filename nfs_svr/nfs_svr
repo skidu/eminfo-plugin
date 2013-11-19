@@ -1,0 +1,165 @@
+#!/bin/bash
+
+
+BASE_DIR="/usr/local/eminfo/"
+if [ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ]; then
+        source ${BASE_DIR}/bin/include 2>&-
+else
+        echo -en "{unknown}:{str}:{include file not exists or empty}"
+        exit 3
+fi
+
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help}  {nfs_server_ip}
+
+Usage:   data  166.111.96.102
+
+Output:   
+
+EOF
+exit 0;
+}
+
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=          ### { ok | warn | crit | unknown | noop }
+TYPE=           ### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+if [ "${MODE}" == "1" ]; then
+	nfs_server_ip=$2
+else
+	nfs_server_ip=$(read_eminfo_config nfs_svr nfs_server_ip)
+fi
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${nfs_server_ip}" ] && nfs_server_ip="127.0.0.1"
+
+# check function here
+check(){
+  [ -f "/usr/sbin/rpcinfo" -a -x "/usr/sbin/rpcinfo" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="utilite [/usr/sbin/rpcinfo] not prepared."
+        return
+  }
+
+  [ -f "/usr/sbin/showmount" -a -x "/usr/sbin/showmount" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="utilite [/usr/sbin/showmount] not prepared."
+        return
+  }
+
+  [ -f "/etc/mtab" -a -s "/etc/mtab" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="File: [/etc/mtab] not prepared.";
+        return
+  }
+
+  local nfs_server_services="nfs mountd portmapper nlockmgr"
+  local nfs_client_services="portmapper"
+  local status=
+  local failed_server_services=
+  local failed_client_services=
+  local result= critnum=0  unknnum=0
+  local mpoint=
+  result="NFS Server: [${nfs_server_ip}] ### ###"
+  for ip in `echo "${nfs_server_ip}"`
+  do
+	((total++))
+	### check nfs server side services
+	status=$(/usr/sbin/rpcinfo -p "${ip}" 2>&1)
+	for i in ${nfs_server_services}
+ 	do
+		i1=$(echo -e "${status}" | grep -E -o -w "${i}")
+		if [ -z "${i1}" ]; then
+			failed_server_services="${i},${failed_server_services}"
+		fi 
+	done
+	if [ ! -z "${failed_server_services}" ]; then
+		result="${result} $(html_red "nfs server [${ip}], services: [${failed_server_services}] dead") ### ### "
+		((critnum++))	
+		continue
+	else
+		result="${result} nfs server [${ip}], services: [${nfs_server_services}] alive ### "
+	fi
+
+	### check nfs client side services
+	status=$(/usr/sbin/rpcinfo -p "127.0.0.1" 2>&1)
+	for i in ${nfs_client_services}
+	do
+		i2=$(echo -e "${status}" | grep -E -o -w "${i}")
+		if [ -z "${i2}" ]; then
+			failed_client_services="${i},${failed_client_services}"
+		fi
+	done
+	if [ ! -z "${failed_client_services}" ]; then
+		result="${result} $(html_red "nfs local client services: [${failed_client_services}] dead") ### ### "
+		((critnum++))
+		continue
+	else
+		result="${result} nfs local client services: [${nfs_client_services}] alive ### "
+	fi
+
+	### check nfs server export list
+	nfs_exports=$(/usr/sbin/showmount -e ${ip} --no-headers 2>&1)
+	if [ "$?" != "0" ]; then
+		result="${result} $(html_red "read nfs exports error: [$(echo -e "${nfs_exports}"|tr -d '\r\n')]") ### ### "
+		((critnum++))
+		continue
+	else
+		path_exports=$(echo -e "${nfs_exports}" | /bin/awk '{a[$1]++} END{for(c in a){printf "%s ",c}}')
+		result="${result} read nfs exports list: [${path_exports}] ### "
+	fi
+
+	for i in ${path_exports}
+	do
+		mpoint=$(/bin/awk '($1~/'$ip':'$i'\>/ && $3~/\<nfs\>){print $2}' /etc/mtab 2>&-)
+		if [ ! -z "${mpoint}" -a -d "${mpoint}" ]; then
+			result="${result} ${ip}:${i} mounted on ${mpoint} ### "
+		fi
+	done
+	result="${result} ###"
+  done
+
+  # exit if MODE=1
+  [ "${MODE}" == "1" ] && exit;
+
+  [ "${critnum}" -gt "0" ] && {
+        EXIT_STATUS=${STATE_WARNING};
+        LEVEL="crit";
+        TYPE="str";
+        CONTENT="NFS SVR Check CRITICAL | ${critnum} nfs server check failed | ${result} "
+  } || {
+	EXIT_STATUS="${STATE_OK}"
+	LEVEL="ok"
+	TYPE="str"
+	CONTENT="NFS SVR Check OK | ${total} nfs server check success | ${result} "
+  }
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

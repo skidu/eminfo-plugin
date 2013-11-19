@@ -74,15 +74,58 @@ while(@addr_pair) {
 	$critnum++;
 	goto ERREND;
   } else {
-	(my $welcome = <$memcache>) =~ s/[\r\n]//g;
 	$time_stop = Benchmark->new();
 	$time_duration = timestr(timediff($time_stop,$time_start),'noc');
 	$time_duration = (split /\s+/, $time_duration )[0];
-	$result .= "connect [$mem_host:$mem_port] return welcome banner ### [$welcome] ($time_duration seconds) ### ";
+	$result .= "connect memcache server [$mem_host:$mem_port] succeed. ($time_duration seconds) ### ";
 	$time_start = Benchmark->new();		## reset time_start
   }
-  print $memcache "stats\n\r";			## if without \r, will hang up for 30s.
-  (my $response = <$memcache>) =~ s/[\r\n]//g;
+  print $memcache "stats\r\n";			## if without \r, will hang up for 30s.
+  my ($pid,$uptime,$version,$curconn,$curitem,$bytes,$get_hits,$cmd_get) = ('','','','','','','','');
+  while (<$memcache>) {
+	chomp;
+	last if /END/;
+	if (m/ERROR/) {
+		$critnum++;	
+		$result .= " memcache return error: $_ ### ";
+		last;
+	}
+	if (m/\ASTAT pid ([\d\.]+)/) {
+		$pid = $1;
+	}
+	if (m/\ASTAT uptime ([\d\.]+)/) {
+		$uptime = $1;
+	}
+	if (m/\ASTAT version ([\d\.]+)/) {
+		$version = $1;
+	}
+	if (m/\ASTAT curr_connections ([\d\.]+)/) {
+		$curconn = $1;
+	}
+	if (m/\ASTAT curr_items ([\d\.]+)/) {
+		$curitem = $1;
+	}
+	if (m/\ASTAT bytes ([\d\.]+)/) {
+		$bytes = $1;
+	}
+	if (m/\ASTAT get_hits ([\d\.]+)/) {
+		$get_hits = $1;
+	}
+	if (m/\ASTAT cmd_get ([\d\.]+)/) {
+		$cmd_get = $1;
+	}
+  }
+  $memcache->close();
+  unless ($pid ne '' && $uptime ne '' && $version ne '') {
+	$critnum++;
+  }
+  $time_stop = Benchmark->new();
+  $time_duration = timestr(timediff($time_stop,$time_start),'noc');
+  $time_duration = (split /\s+/, $time_duration )[0];
+  $result .= "get response: ($time_duration seconds) ### ";
+  $result .= "Version=$version  PID=$pid  Uptime=$uptime ### ";
+  $result .= "Size=$bytes  Item=$curitem  Connection=$curconn ### ";
+  $result .= "Hit=$get_hits  Request=$cmd_get  HitRate=".$get_hits*100/$cmd_get."% ### ###";
   next;
 
   ERREND: {
@@ -102,5 +145,5 @@ if ($critnum > 0) {
   exit $state_unkn;
 } else {
   print "{ok}:{str}:{ Memcache SVR OK | $total/$total memcache check success | $result }";
-  exit $state_unkn;
+  exit $state_ok;
 }

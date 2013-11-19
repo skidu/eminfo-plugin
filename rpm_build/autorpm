@@ -23,6 +23,7 @@ if [ -z "${1}" ]; then
   source0=$(awk -F: '($1~/Source0/){print $2}' "${specfile}" 2>&-|tr -d ' \t')
   plugins=( 
   	port
+	fdnum
   	process
   	memory 
   	mysql_ping
@@ -40,6 +41,8 @@ if [ -z "${1}" ]; then
 	imap_svr
 	pop_svr
 	smtp_svr
+	nfs_svr
+	memcache_perf
   )
 else
   if [ -d "${basedir}/${1}" ]; then

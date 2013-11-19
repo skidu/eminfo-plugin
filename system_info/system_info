@@ -2,7 +2,7 @@
 use warnings;
 use strict;
 use utf8;
-use Smart::Comments;
+# use Smart::Comments;
 
 my %product_info = (
   'manufacturer'	=> '',

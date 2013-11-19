@@ -2,7 +2,6 @@
 use warnings;
 use strict;
 use utf8;
-use Smart::Comments;
 
 # return codes
 our ($state_ok,$state_warn,$state_crit,$state_unkn,$state_noop) = (0,1,2,3,4);

@@ -51,6 +51,8 @@ check(){
   local ldir="/usr/local/eyou/mail/queue/Local/Info"
   local rdir="/usr/local/eyou/mail/queue/Remote/Info"
   local bdir="/usr/local/eyou/mail/queue/Bounce/Info"
+  local mdir="/usr/local/eyou/mail/queue/Mlist/Info"
+  local tdir="/usr/local/eyou/mail/queue/Tmp/Info"
 
   [ -d "${ldir}" -a -d "${rdir}" -a -d "${bdir}" ] || {
 	EXIT_STATUS=${STATE_UNKNOWN}
@@ -63,7 +65,9 @@ check(){
   ln=$(find ${ldir} -follow -type f 2>&-| wc -l)
   rn=$(find ${rdir} -follow -type f 2>&-| wc -l)
   bn=$(find ${bdir} -follow -type f 2>&-| wc -l)
-  total=$(echo "${ln}+${rn}+${bn}" | bc 2>&-)
+  mn=$(find ${mdir} -follow -type f 2>&-| wc -l)
+  tn=$(find ${tdir} -follow -type f 2>&-| wc -l)
+  total=$(echo "${ln}+${rn}+${bn}+${mn}" | bc 2>&-)
 
   # output data and exit if MODE=1 
   [ "${MODE}" == "1" ] && {
@@ -76,18 +80,18 @@ check(){
 		EXIT_STATUS="${STATE_CRITICAL}"
 		LEVEL="crit"
 		TYPE="str"
-		CONTENT="Queuing Letters Number CRITICAL | ${total} letters | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### "
+		CONTENT="Queuing Letters Number CRITICAL | ${total} letters | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### letters in mlist: [${mn}] ### letters in tmp: [${tn}] ### "
 	} || {
 		EXIT_STATUS="${STATE_OK}"
 		LEVEL="ok"
 		TYPE="str"
-		CONTENT="Queuing Letters Number OK | ${total} letters | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### "
+		CONTENT="Queuing Letters Number OK | ${total} letters | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### letters in mlist: [${mn}] ### letters in tmp: [${tn}] ### "
 	}
   else
 	EXIT_STATUS=${STATE_UNKNOWN}
 	LEVEL="unknown"
 	TYPE="str"
-	CONTENT="Queuing Letters Number Unknown | total: [${total}] not numberic | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### "
+	CONTENT="Queuing Letters Number Unknown | total: [${total}] not numberic | letters in local: [${ln}] ### letters in remote: [${rn}] ### letters in bounce: [${bn}] ### letters in mlist: [${mn}] ### letters in tmp: [${tn}] ### "
   fi
 }
 

@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+
+BASE_DIR="/usr/local/eminfo/"
+if [ -f "${BASE_DIR}/bin/include" -a -s "${BASE_DIR}/bin/include" ]; then
+        source ${BASE_DIR}/bin/include 2>&-
+else
+        echo -en "{unknown}:{str}:{include file not exists or empty}"
+	exit 3
+fi
+
+show_help(){
+cat <<EOF
+Arguments:   {d|data|h|help} {dns_check_lst} {max_elapsed_time}
+
+Usage:	 data  "eyou.net:mx,ns,soa  mail.eyou.net:a"  10
+
+Output:   
+Example:
+EOF
+exit 0;
+}
+MODE=0
+[ "$1" == "data" -o "$1" == "d" ] && MODE=1
+[ "$1" == "help" -o "$1" == "h" ] && show_help;
+
+
+# Return Codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_NOOP=4
+
+# Set Default
+EXIT_STATUS=0
+LEVEL=    	### { ok | warn | crit | unknown | noop }
+TYPE=   	### { str| file }
+CONTENT=        ### { strings | /path/to/result.file }
+
+# Read plugin config value here
+if [ "${MODE}" == "1" ]; then
+	dns_check_lst="$2"
+	max_elapsed_time="$3"
+else
+	dns_check_lst=$( read_eminfo_config dns_svr dns_check_lst )
+	max_elapsed_time=$( read_eminfo_config dns_svr max_elapsed_time )
+fi
+
+# if null return STATE_UNKNOWN.
+
+# if null or invalid set default.
+[ -z "${dns_check_lst}" ] && dns_check_lst="eyou.net:mx,ns,soa  mail.eyou.net:a  8.8.8.8:ptr"
+[ -z "${max_elapsed_time}" -o ! -z "${max_elapsed_time//[0-9]}" ] && max_elapsed_time="10"
+
+# check function here
+check(){
+
+  # /usr/bin/time -p -f "%E"
+  [ -f "/usr/bin/time" -a -x "/usr/bin/time" ] || {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="Util: [/usr/bin/time] not prepared.";
+        return
+  }
+
+  [ -f "/usr/bin/host" -a -x "/usr/bin/host" ] || {
+	EXIT_STATUS=${STATE_UNKNOWN};
+	LEVEL="unknown";
+	TYPE="str";
+	CONTENT="Util: [/usr/bin/host] not prepared.";
+	return
+  }
+
+  local result= warnnum=0  unknnum=0 total=0
+
+  result="DNS Check List: [${dns_check_lst}] ### ###"
+  for x in `echo "${dns_check_lst}"`
+  do
+	((total++))
+	target=$(echo -e "${x}" | awk -F: '{print $1}')
+	types=$(echo -e "${x}" | awk -F: '{print $2}')
+	flag=0
+	for y in `echo -e "${types}" | tr ',' ' '`
+	do
+		output=$(/usr/bin/time -p -f "%E" /usr/bin/host -t ${y} ${target} 2>&1)
+		rc=$?
+		if [ "${rc}" == "0" ]; then
+			elapsed=$(echo -e "${output}" | tail -n1)
+			result="${result} resolving [${y}] record on [${target}] returned in [${elapsed}] ### "
+		else
+			((flag++))
+		fi
+	done
+	result="${result} ### "
+	[ "${flag}" == "0" ] || ((warnnum++))
+  done
+
+  # exit if MODE=1
+  [ "${MODE}" == "1" ] && exit;
+
+  [ "${warnnum}" -gt "0" ] && {
+	EXIT_STATUS=${STATE_WARNING};
+	LEVEL="warn";
+	TYPE="str";
+	CONTENT="DNS Check WARNING | ${warnnum}/${total} check failed | ${result} "
+  } || {
+	[ "${unknnum}" -gt "0" ] && {
+		EXIT_STATUS=${STATE_UNKNOWN};
+		LEVEL="unknown";
+		TYPE="str";
+		CONTENT="DNS Check UNKNOWN | ${unknnum}/${total} check unknown | ${result} "
+	} || {
+		EXIT_STATUS="${STATE_OK}"
+		LEVEL="ok"
+		TYPE="str"
+		CONTENT="DNS Check OK | ${total}/${total} check success | ${result} "
+	}
+  }
+}
+
+check
+
+# output result and return exit status here.
+echo "{"${LEVEL}"}:{"${TYPE}"}:{"${CONTENT}"}"  | tr -d '\015\012'
+exit ${EXIT_STATUS}

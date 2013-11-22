@@ -125,7 +125,11 @@ while(@addr_pair) {
   $result .= "get response: ($time_duration seconds) ### ";
   $result .= "Version=$version  PID=$pid  Uptime=$uptime ### ";
   $result .= "Size=$bytes  Item=$curitem  Connection=$curconn ### ";
-  $result .= "Hit=$get_hits  Request=$cmd_get  HitRate=".$get_hits*100/$cmd_get."% ### ###";
+  if ($cmd_get != 0) {
+  	$result .= "Hit=$get_hits  Request=$cmd_get  HitRate=".$get_hits*100/$cmd_get."% ### ###";
+  } else {
+	$result .= "Hit=$get_hits  Request=$cmd_get  HitRate=0% ### ###";
+  }
   next;
 
   ERREND: {

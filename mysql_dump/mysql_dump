@@ -41,7 +41,7 @@ CONTENT=""      ### { strings | /path/to/result.file }
 mysqldump_path=$(read_eminfo_config mysql_dump mysqldump_path)
 mysql_conn_conf=$(read_eminfo_config mysql_dump mysql_conn_conf)
 mysql_dump_tables=$(read_eminfo_config mysql_dump mysql_dump_tables)
-dump_savedir=$(read_eminfo_config mysql_dump savedir)
+dump_savedir=$(read_eminfo_config mysql_dump dump_savedir)
 
 # if null or invalid set default.
 
@@ -72,7 +72,7 @@ check() {
         return
   }
 
-  [ -d "${dump_backdir}" -a -w "${dump_backdir}" ] || {
+  [ -d "${dump_savedir}" -a -w "${dump_savedir}" ] || {
 	EXIT_STATUS=${STATE_UNKNOWN}
 	LEVEL="unknown"
 	TYPE="str"

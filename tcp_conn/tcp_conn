@@ -104,7 +104,7 @@ check_single(){
   }
 
   if [ -z "${total}" -o ! -z "${total//[0-9]}" ]; then
-	local output=" $(html_red "check [${s_port}:${limit}]: return: [${total}] is not numberic") ### Maybe port: [${s_port}] not listening ### "
+	local output=" $(html_yellow "check [${s_port}:${limit}]: return: [${total}] is not numberic") ### Maybe port: [${s_port}] not listening ### "
 	return_code=2
   else
 	[ "$(echo " ${total} >= ${limit} " | bc 2>&-)" == "1" ] && {

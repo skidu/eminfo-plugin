@@ -27,6 +27,7 @@ if [ -z "${1}" ]; then
   	process
   	memory 
   	mysql_ping
+	mysql_dump
   	http_svr
   	tcp_conn
   	sysload
@@ -35,13 +36,14 @@ if [ -z "${1}" ]; then
 	disk_iostat
   	cpu_usage
   	mail_queue
-  	notify_syslogin
 	remote_mailtest
+  	notify_syslogin
 	notify_oom
 	imap_svr
 	pop_svr
 	smtp_svr
 	nfs_svr
+	dns_svr
 	memcache_perf
   )
 else

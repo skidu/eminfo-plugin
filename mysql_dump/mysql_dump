@@ -40,13 +40,30 @@ CONTENT=""      ### { strings | /path/to/result.file }
 # Read plugin config value here
 mysqldump_path=$(read_eminfo_config mysql_dump mysqldump_path)
 mysql_conn_conf=$(read_eminfo_config mysql_dump mysql_conn_conf)
-savedir=$(read_eminfo_config mysql_dump savedir)
+mysql_dump_tables=$(read_eminfo_config mysql_dump mysql_dump_tables)
+dump_savedir=$(read_eminfo_config mysql_dump savedir)
 
 # if null or invalid set default.
 
 # check function here
 check() {
 
+  [ -z "${mysqldump_path}" ] && {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="mysqldump_path: not defined."
+        return
+  }
+ 
+  [ -z "${dump_savedir}" ] && {
+        EXIT_STATUS=${STATE_UNKNOWN};
+        LEVEL="unknown";
+        TYPE="str";
+        CONTENT="dump_savedir: not defined."
+        return
+  }
+  
   [ -f "${mysqldump_path}" -a -x "${mysqldump_path}" ] || {
         EXIT_STATUS=${STATE_UNKNOWN};
         LEVEL="unknown";
@@ -59,7 +76,7 @@ check() {
 	EXIT_STATUS=${STATE_UNKNOWN}
 	LEVEL="unknown"
 	TYPE="str"
-	CONTENT="directory: [${savedir}] not exist or accessable"
+	CONTENT="directory: [${dump_savedir}] not exist or accessable"
 	return
   }
 
@@ -78,7 +95,7 @@ check() {
   mysql_pass="$(echo -e "${mysql_conn_conf}"|awk -F"," '{print $4}')"
 
   local result=
-  result="dump mysql [${mysql_host}:${mysql_port}] with user [${mysql_user}] by [${mysqldump_path}] ### ### "
+  result="dump tables from mysql [${mysql_host}:${mysql_port}] with user [${mysql_user}] by [${mysqldump_path}] ### ### "
 
   if [ -z "${mysql_pass}" ]; then
 	cmd="${mysqldump_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} -q --dump-date "
@@ -86,45 +103,69 @@ check() {
 	cmd="${mysqldump_path} -h ${mysql_host} -P ${mysql_port} -u${mysql_user} -p"${mysql_pass}" -q --dump-date "
   fi  
 
-  local oknum=0 errnum=0 unknum=0 total=0
+  dirpath="${dump_savedir}/$(date +%Y%m%d_%H%M%S)"
+  errstr= rc=
+  errstr=$( /bin/mkdir -p ${dirpath} 2>&1 1>/dev/null )
+  rc=$?
+  errstr=$( echo -e "${errstr}" | tr -d '\r\n' )
+  if [ "${rc}" != 0 ]; then 
+	EXIT_STATUS=${STATE_CRITICAL};
+	LEVEL="crit";
+	TYPE="str";
+	CONTENT="Mysql Dump BackUp CRITICAL | create backup directory failed | ${errstr} "
+	return
+  fi
 
-
-# ===> here
-	local dirpath="${dump_backdir}/$(date +%Y%m%d%H%M%S)"
-	mkdir -p ${dirpath} 2>&-
-
-
-	for ((i=0;i<${#array_dbtb_list[*]};i++))
+  if [ -f "/${mysql_dump_tables##*file:}" -a -s "/${mysql_dump_tables##*file:}" ]; then
+	dbtb_file="/${mysql_dump_tables##*file:}"
+  elif [ -f "${BASE_DIR}/${mysql_dump_tables##*file:}" -a -s "${BASE_DIR}/${mysql_dump_tables##*file:}" ]; then
+	dbtb_file="${BASE_DIR}/${mysql_dump_tables##*file:}"
+  fi
+  if [ -f "${dbtb_file}" ]; then
+	dblst="$(/bin/awk '($0~/^ *\[ *.* *\] *$/)' "${dbtb_file}" 2>&- | tr -d '[\[\]\t\r ]')"
+	for dbname in ${dblst}
 	do
-		if [ "$(( ${i}%2 ))" == "1" ]; then
-			db="${array_dbtb_list[$i-1]}"  tb="${array_dbtb_list[$i]}"
-			# only collect stderr : can Not use local !!! Otherwise return code will always be 0
-			errstuff=$( ${cmd} ${db} ${tb} 2>&1 1>${dirpath}/${db}.${tb}.sql )
-			[ "$?" != "0" ] && {
-				((errnum++))
-				result="${result} Dump Table: [${db}.${tb}] return Error: $(html_red "${errstuff}"). ###"
-			} || {
-				((succnum++))
-				local dt_size=$(ls -ls ${dirpath}/${db}.${tb}.sql 2>&1 | awk '{print $1}')
-				result="${result} Dump Table: [${db}.${tb}] return $(html_green "OK"). size: [${dt_size}]K ###"
-			}
-			((tbnum++))
-		else
-			continue
-		fi
+		dbtb_tmp=$( awk -v db=${dbname} '\
+				($0~/^ *\[ *'${dbname}' *\] *$/){k=1;x=1;next}\
+				(x==1 && $0~/^ *\[ *.* *\] *$/ && $0!~/^ *\[ *'${dbname}' *\] *$/ ){exit;}\
+				( k==1 && x==1 ){printf "%s %s ",db,$0;}'  "${dbtb_file}" 2>&- )
+		array_dbtb_list=( ${array_dbtb_list}  ${dbtb_tmp} )
 	done
+  else
+	array_dbtb_list=( $( echo -e "${mysql_dump_tables}" | tr -s "." " " )  )
+  fi
 
-	[ "${errnum}" != "0" ] && {
-		EXIT_STATUS=${STATE_CRITICAL};
-		LEVEL="crit";
-		TYPE="str";
-		CONTENT="Mysql Dump BackUp CRITICAL | ${errnum}/${tbnum} tables backup failed. | ${result} "
-	} || {
-		EXIT_STATUS=${STATE_OK};
-  		LEVEL="ok";
-  		TYPE="str";
-		CONTENT="Mysql Dump BackUp OK | ${succnum}/${tbnum} tables backup successfully. | ${result} "
-	}
+  local oknum=0 errnum=0 unknum=0 total=0
+  for ((i=0;i<${#array_dbtb_list[*]};i++))
+  do
+	if [ "$(( ${i}%2 ))" == "1" ]; then
+		((tbnum++))
+		db="${array_dbtb_list[$i-1]}"  tb="${array_dbtb_list[$i]}"
+		errstuff=$( ${cmd} ${db} ${tb} 2>&1 1>${dirpath}/${db}.${tb}.sql )
+		[ "$?" != "0" ] && {
+			((errnum++))
+			result="${result} $(html_red "Dump Table [${db}.${tb}] return [${errstuff}]") ###"
+		} || {
+			((succnum++))
+			dt_size=$(/usr/bin/du -sk ${dirpath}/${db}.${tb}.sql 2>&- | awk '{print $1;exit;}')
+			result="${result} Dump Table [${db}.${tb}] succeed. size=[${dt_size}]K ###"
+		}
+	else
+		continue
+	fi
+  done
+
+  [ "${errnum}" != "0" ] && {
+	EXIT_STATUS=${STATE_CRITICAL};
+	LEVEL="crit";
+	TYPE="str";
+	CONTENT="Mysql Dump BackUp CRITICAL | ${errnum}/${tbnum} tables backup failed. | ${result} "
+  } || {
+	EXIT_STATUS=${STATE_OK};
+  	LEVEL="ok";
+  	TYPE="str";
+	CONTENT="Mysql Dump BackUp OK | ${succnum}/${tbnum} tables backup successfully. | ${result} "
+  }
 }
 
 check

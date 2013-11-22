@@ -4,7 +4,7 @@ use warnings;
 
 our @output;
 if (-x '/usr/bin/w') {
-  @output = `/usr/bin/w`;
+  @output = `/usr/bin/w 2>&-`;
 } else {
   print "util [/usr/bin/w] not prepared, nothing to do.";
 }

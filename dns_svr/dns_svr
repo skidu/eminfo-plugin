@@ -50,7 +50,7 @@ fi
 # if null return STATE_UNKNOWN.
 
 # if null or invalid set default.
-[ -z "${dns_check_lst}" ] && dns_check_lst="eyou.net:mx,ns,soa  mail.eyou.net:a  8.8.8.8:ptr"
+[ -z "${dns_check_lst}" ] && dns_check_lst="eyou.net:mx,ns,soa  mail.eyou.net:a  1.1.1.1:ptr"
 [ -z "${max_elapsed_time}" -o ! -z "${max_elapsed_time//[0-9]}" ] && max_elapsed_time="10"
 
 # check function here
@@ -81,15 +81,18 @@ check(){
 	((total++))
 	target=$(echo -e "${x}" | awk -F: '{print $1}')
 	types=$(echo -e "${x}" | awk -F: '{print $2}')
+	tmpfile="/tmp/.dns_svr_time_tmp"
 	flag=0
 	for y in `echo -e "${types}" | tr ',' ' '`
 	do
-		output=$(/usr/bin/time -p -f "%E" /usr/bin/host -t ${y} ${target} 2>&1)
+		error=$(/usr/bin/time -p -f "%E" -o "${tmpfile}" /usr/bin/host -t ${y} ${target} 2>&1)
 		rc=$?
 		if [ "${rc}" == "0" ]; then
-			elapsed=$(echo -e "${output}" | tail -n1)
-			result="${result} resolving [${y}] record on [${target}] returned in [${elapsed}] ### "
+			elapsed=$(head -n1 "${tmpfile}")
+			result="${result} dns resolving [${y}] record on [${target}] succeed in [${elapsed}] seconds ### "
 		else
+			error=$(echo -e "${error}" | tr -d '\r\n')
+			result="${result} $(html_red "dns resolving [${y}] record on [${target}] returned [${error}]") ### "
 			((flag++))
 		fi
 	done
@@ -104,19 +107,12 @@ check(){
 	EXIT_STATUS=${STATE_WARNING};
 	LEVEL="warn";
 	TYPE="str";
-	CONTENT="DNS Check WARNING | ${warnnum}/${total} check failed | ${result} "
+	CONTENT="DNS SVR Check WARNING | ${warnnum}/${total} check failed | ${result} "
   } || {
-	[ "${unknnum}" -gt "0" ] && {
-		EXIT_STATUS=${STATE_UNKNOWN};
-		LEVEL="unknown";
-		TYPE="str";
-		CONTENT="DNS Check UNKNOWN | ${unknnum}/${total} check unknown | ${result} "
-	} || {
-		EXIT_STATUS="${STATE_OK}"
-		LEVEL="ok"
-		TYPE="str"
-		CONTENT="DNS Check OK | ${total}/${total} check success | ${result} "
-	}
+	EXIT_STATUS="${STATE_OK}"
+	LEVEL="ok"
+	TYPE="str"
+	CONTENT="DNS SVR Check OK | ${total}/${total} check success | ${result} "
   }
 }
 

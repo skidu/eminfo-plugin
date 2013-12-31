@@ -33,13 +33,17 @@ echo -e "${del_dirlst}" | while read line
 do
 	if [ ! -z "${line//[ ]}" -a -d "${line}" ]; then
 		if [ "$( sub_str "${line}" "${dump_savedir}" )" == "yes" ]; then
-			/bin/rm -rf "${line}" 2>&-
+			if [ ! -L "${line}" ]; then	## skip link directory, as it's dangerous
+				/bin/rm -rf "${line}" 2>&-
+			fi
 		fi
 	fi
 done
 if [ -z "${del_dirlst}" ]; then
 	result="no overdued (${dump_reserve_time} days before) directories found, nothing to do"
 else
-	result="cleaned up overdued directories: [${del_dirlst}]"
+	del_dirnum=$(echo -e "${del_dirlst}" | wc -l)
+	del_dirlst=$(echo -e "${del_dirlst}" | tr -s "\n" " ")
+	result="cleaned up ${del_dirnum} overdued directories: [${del_dirlst}]"
 fi
 echo -en "${result}"

@@ -469,3 +469,14 @@ if (-d $netdir && -r $netdir) {
 __END__
 # smartctl -i /dev/sda
 # cat /proc/scsi/scsi     
+/opt/MegaRAID/MegaCli/MegaCli64 -LDInfo -Lall -aALL	查raid级别
+/opt/MegaRAID/MegaCli/MegaCli64 -AdpBbuCmd -aAll	查看电池信息
+/opt/MegaRAID/MegaCli/MegaCli64 -adpCount	【显示适配器个数】
+/opt/MegaRAID/MegaCli/MegaCli64 -AdpAllInfo -aAll 【显示所有适配器信息】
+/opt/MegaRAID/MegaCli/MegaCli64 -cfgdsply -aALL   | grep "Memory" 	【内存大小】
+/opt/MegaRAID/MegaCli/MegaCli64 -LDGetProp -Cache -LALL -a0     【写策略】
+/opt/MegaRAID/MegaCli/MegaCli64 -PDList -aALL     查看所有物理硬盘信息
+/opt/MegaRAID/MegaCli/MegaCli64 -AdpBbuCmd -GetBbuStatus -aALL |grep ‘Charger Status’ 【查看充电状态】
+/opt/MegaRAID/MegaCli/MegaCli64 -AdpBbuCmd -GetBbuStatus -aALL【显示BBU状态信息】
+/opt/MegaRAID/MegaCli/MegaCli64 -AdpBbuCmd -GetBbuCapacityInfo -aALL【显示BBU容量信息】
+/opt/MegaRAID/MegaCli/MegaCli64 -cfgdsply -aALL 【显示Raid卡型号，Raid设置，Disk相关信息】

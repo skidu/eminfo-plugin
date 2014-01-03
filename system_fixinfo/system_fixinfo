@@ -17,8 +17,10 @@ my %product_info = (
   'memfreedevnum'	=> '',		# Memory Free Plugin Interface
   'meminstallednum'	=> '',		# Memory Installed Number
   'meminstalledsize'	=> '',		# Memory Installed Size (by each)
+  'memtype'		=> '',
+  'memspeed'		=> '',
 );
-my $dmidecode = '/usr/sbin/dmidecode';
+my $dmidecode = '/usr/sbin/dmidecode';	# dmidecode >= 2.7, [OS >= rhel 5.1]
 if (-f $dmidecode && -x $dmidecode) {
   %product_info = (
   	'manufacturer'		=> 'system-manufacturer',
@@ -28,6 +30,10 @@ if (-f $dmidecode && -x $dmidecode) {
   	'biosvendor'		=> 'bios-vendor',
   	'biosversion'		=> 'bios-version',
   	'biosreleasedate'	=> 'bios-release-date',
+	'baseboardmanufacturer'	=> 'baseboard-manufacturer',
+	'baseboardproductname'	=> 'baseboard-product-name',
+	'baseboardversion'	=> 'baseboard-version',
+	'baseboardserialnumber' => 'baseboard-serial-number',
   );
   foreach my $key (keys %product_info) {
     open my $fh, "$dmidecode -s $product_info{$key} 2>&1 |";
@@ -46,23 +52,151 @@ if (-f $dmidecode && -x $dmidecode) {
 		$memdev_start = 0 if /\A\s*\Z/;
 		if (m/\A\s+Maximum\s+Capacity:/) {
 			$product_info{'memmaxcapacity'} = (split /:\s+/)[1];
+			next;
 		}
 		if (m/\AMemory Device/) {
 			$memdev_start = 1;
 			$product_info{'memmaxdevnum'}++;
+			next;
 		}
 		if (m/\A\s+Size:/) {
 			(my $size = (split /:/)[1]) =~ s/\A\s*//g;
 			if ($size =~ /\d+ MB/) {
 				$product_info{'meminstallednum'}++;
-				$product_info{'meminstalledsize'} .= $size.', ';
+				if (!defined $product_info{'meminstalledsize'} || $product_info{'meminstalledsize'} eq '') { 
+					$product_info{'meminstalledsize'} = $size;
+				}else{
+					$product_info{'meminstalledsize'} .= '; '.$size;
+				}
 			}
+			next;
+		}
+		if (m/\A\s*Type:/) {
+			(my $memtype = (split /:/)[1]) =~ s/\A\s*//g;
+			if (!defined $product_info{'memtype'} || $product_info{'memtype'} eq '') {
+				$product_info{'memtype'} = $memtype;
+			} elsif (!grep /\b\Q$memtype\E\b/, $product_info{'memtype'}) {
+				$product_info{'memtype'} .= '; '.$memtype;
+			}
+			next;
+		}
+		if (m/\A\s*Speed:/) {
+			(my $memspeed = (split /:/)[1] ) =~ s/\A\s*//g;
+			if (!defined $product_info{'memspeed'} || $product_info{'memspeed'} eq '') {
+				$product_info{'memspeed'} = $memspeed;
+			} elsif (!grep /\b\Q$memspeed\E\b/, $product_info{'memspeed'}) {
+				$product_info{'memspeed'} .= '; '.$memspeed;
+			}
+			next;
 		}
 	}
 	$product_info{'memfreedevnum'} = $product_info{'memmaxdevnum'} - $product_info{'meminstallednum'};
   }
 }
 ### %product_info
+
+
+
+my %cpu_info = (
+  'vendor'	=> '',
+  'type'	=> '',
+  'phy_num'	=> '',
+  'log_num'	=> '',
+  'speed'	=> '',
+);
+my $cpu_file = '/proc/cpuinfo';
+if (-f $cpu_file && -r $cpu_file) {
+  open my $fh, "<", $cpu_file;
+  if ($fh) {
+	my (%tmp_phy_id, %tmp_speed, %tmp_vendor, %tmp_model);
+        while(<$fh>){
+                chomp;
+		$cpu_info{'log_num'}++ if (m/\Aprocessor\s+/i);
+		if (m/\Aphysical\s+id\s+/i) {
+			$tmp_phy_id{$_}++;
+		}
+		if (m/\Acpu\s+MHz\s+/i) {
+			(my $speed = (split /:/)[1]) =~ s/\A\s*//g;
+			$tmp_speed{$speed.'MHz'}++;
+		}
+		if (m/\Avendor_id\s+/i) {
+			(my $vendor = (split /:/)[1]) =~ s/\A\s*//g;
+			$tmp_vendor{$vendor}++;
+		}
+		if (m/\Amodel\s+name\s+/i) {
+			(my $model = (split /:/)[1]) =~ s/\A\s*//g;
+			$tmp_model{$model}++;
+		}
+        }
+	$cpu_info{'phy_num'} = scalar(keys %tmp_phy_id);
+	$cpu_info{'phy_num'} = 1 if $cpu_info{'phy_num'} == 0;
+	foreach my $key (keys %tmp_speed) {
+		$cpu_info{'speed'} .= '['.$tmp_speed{$key}.']: '.$key;
+	}
+	foreach my $key (keys %tmp_vendor) {
+		$cpu_info{'vendor'} .= '['.$tmp_vendor{$key}.']: '.$key;
+	}
+	foreach my $key (keys %tmp_model) {
+		$cpu_info{'type'} .= '['.$tmp_model{$key}.']: '.$key;
+	}
+  }
+}
+### %cpu_info
+
+
+
+my %mem_info = (
+  'mem_total'		=> '',
+  'swap_total'		=> '',
+);
+my $mem_file = '/proc/meminfo';
+if (-f $mem_file && -r $mem_file) {
+  open my $fh, "<", $mem_file;
+  if ($fh) {
+	while(<$fh>){
+		chomp;
+		if (m/\AMemTotal:/i) {
+			$mem_info{'mem_total'} = int((split /\s+/)[1]/1024).'M';
+		}
+		if (m/\ASwapTotal:/i) {
+			$mem_info{'swap_total'} = int((split /\s+/)[1]/1024).'M';
+		}
+	}
+  }
+}
+### %mem_info
+
+
+ 
+my @input_dev = ();
+my $input_devfile = '/proc/bus/input/devices';
+if (-f $input_devfile && -r $input_devfile) {
+  open my $fh, "<", $input_devfile;
+  if ($fh) {
+	while(<$fh>){
+		chomp;
+		if (m/\AN: /i) {
+			s/[\"\']//g;
+			push @input_dev, (split/=/)[1];
+		}
+	}
+  }
+}
+### @input_dev
+
+
+
+
+my %raid_info = (
+  'raid_vendor'		=> '',
+  'raid_memory'		=> '',
+  'raid_bbu'		=> '',
+  'raid_sid'		=> '',
+  'array_group'		=> '',
+);
+### %raid_info
+
+
 
 my %uname_info = (
   'arch'		=> '',
@@ -126,109 +260,6 @@ if (-f $getconf && -x $getconf) {
   }
 }
 ### %os_info
-
-my %mem_info = (
-  'mem_total'		=> '',
-  'swap_total'		=> '',
-);
-my $mem_file = '/proc/meminfo';
-if (-f $mem_file && -r $mem_file) {
-  open my $fh, "<", $mem_file;
-  if ($fh) {
-	while(<$fh>){
-		chomp;
-		if (m/\AMemTotal:/i) {
-			$mem_info{'mem_total'} = int((split /\s+/)[1]/1024).'M';
-		}
-		if (m/\ASwapTotal:/i) {
-			$mem_info{'swap_total'} = int((split /\s+/)[1]/1024).'M';
-		}
-	}
-  }
-}
-### %mem_info
- 
-my @input_dev = ();
-my $input_devfile = '/proc/bus/input/devices';
-if (-f $input_devfile && -r $input_devfile) {
-  open my $fh, "<", $input_devfile;
-  if ($fh) {
-	while(<$fh>){
-		chomp;
-		if (m/\AN: /i) {
-			push @input_dev, (split/=/)[1];
-		}
-	}
-  }
-}
-### @input_dev
-
-my %cpu_info = (
-  'vendor'	=> '',
-  'type'	=> '',
-  'phy_num'	=> '',
-  'log_num'	=> '',
-  'speed'	=> '',
-);
-my $cpu_file = '/proc/cpuinfo';
-if (-f $cpu_file && -r $cpu_file) {
-  open my $fh, "<", $cpu_file;
-  if ($fh) {
-	my (%tmp_phy_id, %tmp_speed, %tmp_vendor, %tmp_model);
-        while(<$fh>){
-                chomp;
-		$cpu_info{'log_num'}++ if (m/\Aprocessor\s+/i);
-		if (m/\Aphysical\s+id\s+/i) {
-			$tmp_phy_id{$_}++;
-		}
-		if (m/\Acpu\s+MHz\s+/i) {
-			(my $speed = (split /:/)[1]) =~ s/\A\s*//g;
-			$tmp_speed{$speed.'MHz'}++;
-		}
-		if (m/\Avendor_id\s+/i) {
-			(my $vendor = (split /:/)[1]) =~ s/\A\s*//g;
-			$tmp_vendor{$vendor}++;
-		}
-		if (m/\Amodel\s+name\s+/i) {
-			(my $model = (split /:/)[1]) =~ s/\A\s*//g;
-			$tmp_model{$model}++;
-		}
-        }
-	$cpu_info{'phy_num'} = scalar(keys %tmp_phy_id);
-	$cpu_info{'phy_num'} = 1 if $cpu_info{'phy_num'} == 0;
-	foreach my $key (keys %tmp_speed) {
-		$cpu_info{'speed'} .= '['.$tmp_speed{$key}.']: '.$key;
-	}
-	foreach my $key (keys %tmp_vendor) {
-		$cpu_info{'vendor'} .= '['.$tmp_vendor{$key}.']: '.$key;
-	}
-	foreach my $key (keys %tmp_model) {
-		$cpu_info{'type'} .= '['.$tmp_model{$key}.']: '.$key;
-	}
-  }
-}
-### %cpu_info
-
-my %raid_info = (
-  'raid_vendor'		=> '',
-  'raid_memory'		=> '',
-  'raid_bbu'		=> '',
-  'raid_sid'		=> '',
-  'array_group'		=> '',
-);
-### %raid_info
-
-my %inet_info = (
-  'inet_num'		=> '',
-  'inet_driver'		=> '',
-  'inet_vendor'		=> '',
-  'inet_speed'		=> '',
-  'inet_mode'		=> '',
-  'inet_mac'		=> '',
-  'inet_link'		=> '',
-  'inet_ip'		=> '',
-);
-### %inet_info
 
 
 my %sys_clock = (
@@ -322,61 +353,6 @@ if (-f $date && -x $date) {
 
 
 
-my @disk_parted = ();
-my $parted = '/sbin/parted';
-if (-f $parted && -x $parted) {
-  open my $fh, "$parted -l 2>&1 |";
-  if ($fh) {
-	my ($start,$module,$disk,$size,$type) = (0,'','','','');
-	my %single_disk = (
-		'module'	=> '',
-		'devname'	=> '',
-		'devsize'	=> '',
-		'pttype'	=> '',
-		'pttable'	=> '',
-	);
-	my @single_pttable = ();
-	while(<$fh>){
-		chomp;
-		if (m/\A\s*Model:\s+(.+)/) {  # single disk start: 1. push old devhash into result 2. reset new devhash/ptarray
-			push @disk_parted , \%single_disk;
-			%single_disk = ();
-			@single_pttable = ();
-			$single_disk{'module'} = $1;
-		}
-		if (m/\A\s*Disk\s+(.+)\s+([\d\w]+)/) {
-			$single_disk{'devname'} = $1;
-			$single_disk{'devsize'} = $2;
-		}
-		if (m/\A\s*Partition Table:\s+(.+)/) {
-			$single_disk{'pttype'} = $1;
-		}
-		if (m/\A\s*Number\s+/) {
-			$start = 1;  next;
-		}
-		if (m/\A\s*\d\s+/ && $start == 1) {
-			print "$_\n";
-			if ($single_disk{'pttype'} eq 'msdos') {
-				my ($number,$size,$type) = (split /\s+/)[0,3,4];
-				push @single_pttable, "$number  $size  $type";
-			} elsif ($single_disk{'pttype'} eq 'gpt') {
-				my ($number,$size) = (split /\s+/)[0,3];
-				push @single_pttable, "$number $size";
-			} elsif ($single_disk{'pttype'} eq 'loop') {
-				next;
-			}
-		}
-		if ($start == 1 && m//) {
-			$start = 0;		# single disk end
-			$single_disk{'pttable'} = \@single_pttable;
-			push @disk_parted, \%single_disk;
-		}
-	}
-  }
-}
-### @disk_parted
-
-
 my %netcard = ();
 my $lspci = '/sbin/lspci';
 if (-f $lspci && -x $lspci) {
@@ -416,12 +392,14 @@ if (-d $netdir && -r $netdir) {
 		'driver'		=> '',
 		'driver_version'	=> '',
 		'firmware_version'	=> '',
+		'pci_busid'		=> '',
+		'pci_description'	=> '',
 		'encapsulation'		=> '',
 		'mac_address'		=> '',
 		'ipv4_address'		=> '',
 		'ipv4_netmask'		=> '',
 		'mtu'			=> '',
-		'promisc_mode'		=> '',
+		'promisc_mode'		=> 'off',
 	);
 	if (-f $ethtool && -x $ethtool) {
 		open my $fh, "$ethtool $inet_name 2>&1 | ";
@@ -441,7 +419,16 @@ if (-d $netdir && -r $netdir) {
 				$inet_info{'driver'} = (split/:\s+/)[1] if m/\A\s*driver:/;
 				$inet_info{'driver_version'} = (split/:\s+/)[1] if m/\A\s*version:/;
 				$inet_info{'firmware_version'} = (split/:\s+/)[1] if m/\A\s*firmware-version:/;
-				$inet_info{'firmware_version'} = 'unknown' if not defined($inet_info{'firmware_version'});
+				$inet_info{'firmware_version'} = '' if not defined($inet_info{'firmware_version'});
+				$inet_info{'pci_busid'} = (split/:\s+/)[1] if m/\A\s*bus-info:/;
+			}
+			if (not defined ($inet_info{'pci_busid'})) {
+				$inet_info{'pci_busid'} = '';
+			} else {
+				$inet_info{'pci_busid'} =~ s/\A(.+?)://;	# trim first xxxx:
+				if (exists $netcard{$inet_info{'pci_busid'}}) {
+					$inet_info{'pci_description'} = $netcard{$inet_info{'pci_busid'}};
+				}
 			}
 		}
 	}
@@ -479,17 +466,6 @@ if (-d $netdir && -r $netdir) {
 }
 ### @inet_name
 
-
-
-
-
 __END__
-
-/sbin/kudzu --probe --class=network
-/sbin/modinfo tg3
-ethtool  eth0
-ethtool  -i eth0
-lspci | grep "^$(ethtool -i eth0 | awk -F":" '/bus-info/{print $(NF-1)":"$NF}')"
-
-smartctl -i /dev/sda
-cat /proc/scsi/scsi     
+# smartctl -i /dev/sda
+# cat /proc/scsi/scsi     

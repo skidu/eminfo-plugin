@@ -45,8 +45,7 @@ if (-f $dmidecode && -x $dmidecode) {
 		chomp;
 		$memdev_start = 0 if /\A\s*\Z/;
 		if (m/\A\s+Maximum\s+Capacity:/) {
-			$product_info{'memmaxcapacity'} = (split /:/)[1];
-			$product_info{'memmaxcapacity'} =~ s/\A\s*//g;
+			$product_info{'memmaxcapacity'} = (split /:\s+/)[1];
 		}
 		if (m/\AMemory Device/) {
 			$memdev_start = 1;
@@ -293,6 +292,36 @@ if (-f $userfile && -r $userfile) {
 ### @sysuser
 
 
+my $runlevel = '';
+my $inittab = '/etc/inittab';
+if (-f $inittab && -r $inittab) {
+  open my $fh, "<", $inittab;
+  if ($fh) {
+	while(<$fh>){
+		chomp;
+		if (m/\Aid:/){
+			$runlevel = (split /:/)[1];
+			last;
+		}
+	}
+  }
+}
+### $runlevel
+
+
+
+my $systime = '';
+my $date = '/bin/date';
+if (-f $date && -x $date) {
+  open my $fh, "$date +%s 2>&1 |";
+  if ($fh) {
+	chomp ($systime = <$fh>);
+  }
+}
+### $systime
+
+
+
 my @disk_parted = ();
 my $parted = '/sbin/parted';
 if (-f $parted && -x $parted) {
@@ -326,13 +355,15 @@ if (-f $parted && -x $parted) {
 			$start = 1;  next;
 		}
 		if (m/\A\s*\d\s+/ && $start == 1) {
-			print;
+			print "$_\n";
 			if ($single_disk{'pttype'} eq 'msdos') {
 				my ($number,$size,$type) = (split /\s+/)[0,3,4];
 				push @single_pttable, "$number  $size  $type";
 			} elsif ($single_disk{'pttype'} eq 'gpt') {
 				my ($number,$size) = (split /\s+/)[0,3];
 				push @single_pttable, "$number $size";
+			} elsif ($single_disk{'pttype'} eq 'loop') {
+				next;
 			}
 		}
 		if ($start == 1 && m//) {
@@ -344,3 +375,121 @@ if (-f $parted && -x $parted) {
   }
 }
 ### @disk_parted
+
+
+my %netcard = ();
+my $lspci = '/sbin/lspci';
+if (-f $lspci && -x $lspci) {
+  open my $fh, "$lspci 2>&1 | /bin/grep -i -E \"Ethernet controller:\" | ";
+  if ($fh) {
+	while(<$fh>){
+		chomp;
+		my $busid = (split /\s+/)[0];
+		my $info = (split /Ethernet controller:\s+/i)[1];
+		$netcard{$busid} = $info;
+	}
+  }
+}
+my $netcard_num = scalar keys %netcard;
+### %netcard
+### $netcard_num
+
+
+my @inet_name = ();
+my $netdir = '/etc/sysconfig/network-scripts/';
+my $ethtool = '/sbin/ethtool';
+my $ifconfig = '/sbin/ifconfig';
+if (-d $netdir && -r $netdir) {
+  my @netfiles =(glob "$netdir/ifcfg-*" );
+  foreach(@netfiles){
+	chomp;
+	next if m/(~|\.bak|\.orig|\.rpmnew|\.rpmorig|\.rpmsave)\Z/; 
+	next if m/(ifcfg-lo|:|ifcfg-.*-range)/;
+	my $inet_name = (split/\//)[-1];
+  	$inet_name =~ s/\Aifcfg-//g if $inet_name;
+	my %inet_info = (
+		'name'			=> $inet_name,
+		'speed'			=> '',
+		'duplex'		=> '',
+		'is_autoneg'		=> '',
+		'is_linked'		=> '',
+		'driver'		=> '',
+		'driver_version'	=> '',
+		'firmware_version'	=> '',
+		'encapsulation'		=> '',
+		'mac_address'		=> '',
+		'ipv4_address'		=> '',
+		'ipv4_netmask'		=> '',
+		'mtu'			=> '',
+		'promisc_mode'		=> '',
+	);
+	if (-f $ethtool && -x $ethtool) {
+		open my $fh, "$ethtool $inet_name 2>&1 | ";
+		if ($fh) {
+			while(<$fh>){
+				chomp;
+				$inet_info{'speed'} = (split/:\s+/)[1] if m/\A\s*Speed:/;
+				$inet_info{'duplex'} = (split/:\s+/)[1] if m/\A\s*Duplex:/;
+				$inet_info{'is_autoneg'} = (split/:\s+/)[1] if m/\A\s*Auto-negotiation:/;
+				$inet_info{'is_linked'} = (split/:\s+/)[1] if m/\A\s*Link detected:/;
+			}
+		}
+		open my $fh1, "$ethtool -i $inet_name 2>&1 | ";
+		if ($fh1) {
+			while(<$fh1>){
+				chomp;
+				$inet_info{'driver'} = (split/:\s+/)[1] if m/\A\s*driver:/;
+				$inet_info{'driver_version'} = (split/:\s+/)[1] if m/\A\s*version:/;
+				$inet_info{'firmware_version'} = (split/:\s+/)[1] if m/\A\s*firmware-version:/;
+				$inet_info{'firmware_version'} = 'unknown' if not defined($inet_info{'firmware_version'});
+			}
+		}
+	}
+	if (-f $ifconfig && -x $ifconfig) {
+		open my $fh, "$ifconfig $inet_name 2>&1 | ";
+		if ($fh) {
+			while(<$fh>){
+				chomp;
+				if(m/^$inet_name\s+Link encap:(\w+)\s+HWaddr ((?:[A-Fa-f0-9]{2}:){5}(?:[A-Fa-f0-9]{2}))\s*\Z/){
+					$inet_info{'encapsulation'} = $1;			
+					$inet_info{'mac_address'} = $2;
+				}
+				if(m/\s+inet addr:((([0-9]|([1-9]\d)|(1\d\d)|(2([0-4]\d|5[0-5])))\.){3}([1-9]|([1-9]\d)|(1\d\d)|(2([0-4]\d|5[0-5]))))\s+(.*)Mask:(.+)\Z/){
+					$inet_info{'ipv4_address'} = $1;
+					$inet_info{'ipv4_netmask'} = $14;
+				}
+				if(m/\s+MTU:(\d+)\s+/){
+					$inet_info{'mtu'} = $1;
+				}
+			}
+		}
+	}
+	my $flagfile = "/sys/class/net/$inet_name/flags";
+	if (-f $flagfile && -r $flagfile) {
+		open my $fh, "<", $flagfile;
+		if ($fh) {
+			chomp( my $int_flags = <$fh>);
+			if(hex $int_flags & 0x100) {
+				$inet_info{'promisc_mode'} = 'on';
+			}
+		}
+	}
+	push @inet_name, \%inet_info;
+  }
+}
+### @inet_name
+
+
+
+
+
+__END__
+
+/sbin/kudzu --probe --class=network
+/sbin/modinfo tg3
+ethtool  eth0
+ethtool  -i eth0
+lspci | grep "^$(ethtool -i eth0 | awk -F":" '/bus-info/{print $(NF-1)":"$NF}')"
+
+smartctl -i /dev/sda
+cat /proc/scsi/scsi     
